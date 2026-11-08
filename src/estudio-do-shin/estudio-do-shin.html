@@ -87,6 +87,27 @@ header{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:10px
 .folder .nav-item{padding-left:34px;min-height:32px;font-size:13px}
 .nav-empty{font-size:12px;color:var(--tx3);padding:4px 10px 0;line-height:1.5}
 .elbtn{margin-top:4px}
+.sbtop{display:none}
+@media(min-width:900px){
+  .sbtop{display:flex;justify-content:flex-end;margin:-2px 0 6px}
+  .sbtog{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;color:var(--tx3)}
+  .sbtog:hover{background:var(--bg2);color:var(--tx)}.sbtog svg{width:18px;height:18px}
+  .sidebar{transition:width .2s ease}
+  body.sbmini{--sbw:64px}
+  body.sbmini .sidebar{width:64px;padding:10px 8px 30px;overflow-x:hidden}
+  body.sbmini .sbtop{justify-content:center}
+  body.sbmini .nav-item{justify-content:center;padding:0;gap:0;min-height:40px}
+  body.sbmini .nav-item .t,body.sbmini .nav-item .c,body.sbmini .nav-empty,body.sbmini .prow .more,body.sbmini .prow.folder{display:none}
+  body.sbmini .nav-item svg{width:18px;height:18px}
+  body.sbmini .nav-sec{font-size:0;padding:14px 0 6px;justify-content:center;border-top:1px solid var(--line);margin-top:8px}
+  body.sbmini .nav-sec button{margin:0}
+  body.sbmini .prow .nav-item{padding:0}
+}
+.pdot{width:16px;height:16px;flex:none;display:grid;place-items:center}.pdot svg{fill:currentColor;fill-opacity:.22}
+.pcols{display:grid;grid-template-columns:repeat(5,28px);gap:8px;padding:6px 8px 10px}
+.pcols button{width:28px;height:28px;border-radius:50%;border:2px solid transparent;display:grid;place-items:center}
+.pcols button.on{border-color:var(--tx)}
+.pcols button.none{background:var(--bg3);color:var(--tx3);font-size:13px}
 
 /* ---------- barra de filtros ---------- */
 main{margin-left:var(--sbw);padding:0 16px calc(300px + env(safe-area-inset-bottom))}
@@ -739,6 +760,7 @@ header .chip.btn:hover,header .iconbtn:hover{background:var(--glassBtnH)}
 .ntools i,.cv-rail hr{background:var(--glassLo);border-color:var(--glassLo)}
 /* barra lateral: ícones na cor de destaque (Golden Gate) */
 .nav-item svg{color:var(--ac)}
+.nav-item .pdot svg{color:inherit}
 .nav-item.on{background:var(--glassBtnH);box-shadow:inset 0 1px 0 var(--glassHi)}
 /* canvas passa por baixo do topo e da barra lateral, que viram vidro */
 .cvmode .cv{top:0;left:0;--insL:var(--sbw);--insT:var(--hh)}
@@ -4989,7 +5011,7 @@ const dataURLToBlob = async d => (await fetch(d)).blob();
    e ao abrir o app ele baixa o que mudou em outros aparelhos. Sem servidor (arquivo aberto direto), nada muda. */
 const SYNC = (() => {
   const LSM = 'estudio-do-shin:sync', LSD = 'estudio-do-shin:dirty';
-  const LOCAL_CFG = ['serverUrl', 'mode', 'view', 'ctab', 'galFilter', 'mpTab', 'cvPage', '_t'];
+  const LOCAL_CFG = ['serverUrl', 'mode', 'view', 'ctab', 'galFilter', 'mpTab', 'cvPage', 'sbMini', '_t'];
   let on = false, meta = {}, dirty = {};
   try { meta = JSON.parse(localStorage.getItem(LSM) || '{}'); dirty = JSON.parse(localStorage.getItem(LSD) || '{}'); } catch {}
   const saveMeta = () => { try { localStorage.setItem(LSM, JSON.stringify(meta)); localStorage.setItem(LSD, JSON.stringify(dirty)); } catch {} };
@@ -5523,23 +5545,25 @@ function renderSidebar() {
   const v = view();
   const on = (k, pid, fid) => v.kind === k && (pid === undefined || v.pid === pid) && (fid === undefined || (v.fid || null) === fid) ? 'on' : '';
   const projs = [...state.projects].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  const pico = p => p.color ? `<span class="pdot" style="color:${esc(p.color)}">${I.projF || I.proj}</span>` : I.proj;
   $('#sidebar').innerHTML = `
-    <button class="nav-item ${on('all')}" data-v="all">${I.grid}<span class="t">Todas as gerações</span><span class="c">${state.items.length}</span></button>
-    <button class="nav-item ${on('fav')}" data-v="fav">${I.heartO}<span class="t">Favoritas</span><span class="c">${countIn(i => i.fav)}</span></button>
-    <button class="nav-item ${on('loose')}" data-v="loose">${I.inbox}<span class="t">Sem projeto</span><span class="c">${countIn(i => !i.projectId)}</span></button>
-    <button class="nav-item elbtn" data-a="elements">${I.at}<span class="t">Elementos</span><span class="c">${state.elements.length}</span></button>
-    <button class="nav-item" data-a="editor">${sm(ICON_BRUSH)}<span class="t">Editar imagem</span></button>
+    <div class="sbtop"><button class="sbtog" data-a="sbMini" title="${cfg.sbMini ? 'Expandir barra lateral' : 'Recolher barra lateral'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></button></div>
+    <button class="nav-item ${on('all')}" data-v="all" title="Todas as gerações">${I.grid}<span class="t">Todas as gerações</span><span class="c">${state.items.length}</span></button>
+    <button class="nav-item ${on('fav')}" data-v="fav" title="Favoritas">${I.heartO}<span class="t">Favoritas</span><span class="c">${countIn(i => i.fav)}</span></button>
+    <button class="nav-item ${on('loose')}" data-v="loose" title="Sem projeto">${I.inbox}<span class="t">Sem projeto</span><span class="c">${countIn(i => !i.projectId)}</span></button>
+    <button class="nav-item elbtn" data-a="elements" title="Elementos">${I.at}<span class="t">Elementos</span><span class="c">${state.elements.length}</span></button>
+    <button class="nav-item" data-a="editor" title="Editar imagem">${sm(ICON_BRUSH)}<span class="t">Editar imagem</span></button>
     <div id="diskChip"></div>
     <div class="nav-sec">Projetos <button data-a="newProject" title="Novo projeto">${I.plus}</button></div>
     ${projs.length ? '' : '<div class="nav-empty">Nenhum projeto ainda. Crie um no + acima.</div>'}
     ${projs.map(p => {
       const open = v.kind === 'project' && v.pid === p.id;
       return `<div class="prow">
-        <button class="nav-item ${on('project', p.id, null)}" data-v="project" data-pid="${p.id}">${I.proj}<span class="t">${esc(p.name)}</span><span class="c">${countIn(i => i.projectId === p.id)}</span></button>
+        <button class="nav-item ${on('project', p.id, null)}" data-v="project" data-pid="${p.id}" title="${esc(p.name)}">${pico(p)}<span class="t">${esc(p.name)}</span><span class="c">${countIn(i => i.projectId === p.id)}</span></button>
         <button class="more" data-a="projMenu" data-pid="${p.id}" title="Opções">${I.more}</button>
       </div>
       ${open ? (p.folders || []).map(f => `<div class="prow folder">
-        <button class="nav-item ${on('project', p.id, f.id)}" data-v="project" data-pid="${p.id}" data-fid="${f.id}">${I.folder}<span class="t">${esc(f.name)}</span><span class="c">${countIn(i => i.projectId === p.id && i.folderId === f.id)}</span></button>
+        <button class="nav-item ${on('project', p.id, f.id)}" data-v="project" data-pid="${p.id}" data-fid="${f.id}">${f.color ? `<span class="pdot" style="color:${esc(f.color)}">${I.folder}</span>` : I.folder}<span class="t">${esc(f.name)}</span><span class="c">${countIn(i => i.projectId === p.id && i.folderId === f.id)}</span></button>
         <button class="more" data-a="folderMenu" data-pid="${p.id}" data-fid="${f.id}" title="Opções">${I.more}</button>
       </div>`).join('') + `<div class="prow folder"><button class="nav-item" data-a="newFolder" data-pid="${p.id}" style="color:var(--tx3)">${I.plus}<span class="t">Nova pasta</span></button></div>` : ''}`;
     }).join('')}`;
@@ -5549,6 +5573,7 @@ $('#sidebar').addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.v) { setView(b.dataset.v === 'project' ? { kind: 'project', pid: b.dataset.pid, fid: b.dataset.fid || null } : { kind: b.dataset.v }); return; }
   const a = b.dataset.a;
+  if (a === 'sbMini') { cfg.sbMini = !cfg.sbMini; saveCfg(); applySbMini(); renderSidebar(); return; }
   if (a === 'elements') { closeSidebar(); openElements(); }
   if (a === 'disk') diskMenu(b);
   if (a === 'editor') { closeSidebar(); openRefPicker('free', r => openEditor({ data: r.data })); }
@@ -5560,6 +5585,14 @@ $('#sidebar').addEventListener('click', async e => {
 function openSidebar() { $('#sidebar').classList.add('open'); const k = document.createElement('div'); k.className = 'sbk'; k.id = 'sbk'; k.onclick = closeSidebar; document.body.appendChild(k); }
 function closeSidebar() { $('#sidebar').classList.remove('open'); $('#sbk')?.remove(); }
 $('#btnMenu').onclick = openSidebar;
+function applySbMini() { document.body.classList.toggle('sbmini', !!cfg.sbMini); setTimeout(() => dispatchEvent(new Event('resize')), 220); }
+applySbMini();
+const PCOLORS = ['#ff5a5f', '#ff9f43', '#ffd43b', '#c8f560', '#51cf66', '#20c997', '#4dabf7', '#748ffc', '#cc5de8', '#f783ac'];
+function colorPick(anchor, cur, onPick) {
+  openPop(anchor, `<h6>Cor do ícone</h6><div class="pcols">${PCOLORS.map(c => `<button data-c="${c}" class="${cur === c ? 'on' : ''}" style="background:${c}" title="${c}"></button>`).join('')}<button data-c="" class="none ${!cur ? 'on' : ''}" title="Sem cor">×</button></div>`, ev => {
+    const b = ev.target.closest('[data-c]'); if (!b) return; closePop(); onPick(b.dataset.c || null);
+  }, { width: 200 });
+}
 
 /* ---------- projetos e pastas ---------- */
 async function newProject() {
@@ -5577,12 +5610,13 @@ async function newFolder(pid) {
 }
 function projMenu(anchor, pid) {
   const p = proj(pid);
-  openPop(anchor, `<button class="opt" data-a="nf">${I.plus.replace('<svg','<svg width="16" height="16"')} Nova pasta</button><button class="opt" data-a="ren">${I.pen.replace('<svg','<svg width="16" height="16"')} Renomear</button>
+  openPop(anchor, `<button class="opt" data-a="nf">${I.plus.replace('<svg','<svg width="16" height="16"')} Nova pasta</button><button class="opt" data-a="ren">${I.pen.replace('<svg','<svg width="16" height="16"')} Renomear</button><button class="opt" data-a="color"><span style="width:16px;height:16px;border-radius:50%;background:${p.color || 'var(--bg3)'};border:1px solid var(--line2);flex:none"></span> Cor do ícone</button>
     <button class="opt" data-a="disk">${sm(I.folder)} <span class="two"><span>Pasta no disco…</span><small>${esc(p.diskRoot ? p.diskRoot : 'dentro da pasta principal')}</small></span></button>
     ${p.diskRoot ? `<button class="opt" data-a="diskReset">${sm(I.redo)} Voltar para a pasta principal</button>` : ''}
     <button class="opt danger" data-a="del">${I.trash.replace('<svg','<svg width="16" height="16"')} Excluir projeto</button>`, async ev => {
     const a = ev.target.closest('[data-a]')?.dataset.a; if (!a) return; closePop();
     if (a === 'nf') newFolder(pid);
+    if (a === 'color') colorPick(anchor, p.color, async c => { p.color = c; await DB.put('projects', p); renderSidebar(); });
     if (a === 'disk' || a === 'diskReset') {
       const root = a === 'diskReset' ? null : await diskPick(); if (a === 'disk' && !root) return;
       const its = state.items.filter(i => i.projectId === pid && i.disk);
@@ -5604,8 +5638,9 @@ function projMenu(anchor, pid) {
 }
 function folderMenu(anchor, pid, fid) {
   const p = proj(pid), f = folderOf(p, fid);
-  openPop(anchor, `<button class="opt" data-a="ren">${I.pen.replace('<svg','<svg width="16" height="16"')} Renomear</button><button class="opt danger" data-a="del">${I.trash.replace('<svg','<svg width="16" height="16"')} Excluir pasta</button>`, async ev => {
+  openPop(anchor, `<button class="opt" data-a="ren">${I.pen.replace('<svg','<svg width="16" height="16"')} Renomear</button><button class="opt" data-a="color"><span style="width:16px;height:16px;border-radius:50%;background:${f.color || 'var(--bg3)'};border:1px solid var(--line2);flex:none"></span> Cor do ícone</button><button class="opt danger" data-a="del">${I.trash.replace('<svg','<svg width="16" height="16"')} Excluir pasta</button>`, async ev => {
     const a = ev.target.closest('[data-a]')?.dataset.a; if (!a) return; closePop();
+    if (a === 'color') colorPick(anchor, f.color, async c => { f.color = c; await DB.put('projects', p); renderSidebar(); });
     if (a === 'ren') { const n = await ask({ title: 'Renomear pasta', label: 'Nome', value: f.name, ok: 'Salvar' }); if (n) { f.name = n; await DB.put('projects', p); renderAll(); } }
     if (a === 'del') {
       const n = countIn(i => i.folderId === fid);
