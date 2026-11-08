@@ -121,7 +121,7 @@
     const isExp = r.startsWith('/explorar');
     const sem = lib ? lib.week : { seconds: 0, lessonsDone: 0 };
     $('#menu').innerHTML = `
-      <a class="marca" href="#/"><span class="marca-ico" aria-hidden="true">E</span><span><b>Escola do Shin</b><small>sua biblioteca de cursos</small></span></a>
+      <a class="marca" href="#/"><span class="marca-ico" aria-hidden="true"></span><span><b>Escola do Shin</b><small>sua biblioteca de cursos</small></span></a>
       <div class="nav-grupo">
         <a class="nav-item${ativo(r === '/')}" href="#/">${ic('inicio')}Início</a>
         <a class="nav-item${ativo(isExp && ![...p.keys()].length)}" href="#/explorar">${ic('explorar')}Explorar</a>
