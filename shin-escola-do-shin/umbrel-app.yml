@@ -4,7 +4,7 @@ name: Escola do Shin
 tagline: Sua biblioteca de cursos em vídeo e PDF, com progresso e anotações
 icon: https://raw.githubusercontent.com/ShinSsa/shin-app-store/master/assets/escola-do-shin.png
 category: media
-version: "1.0.1"
+version: "1.0.2"
 port: 8792
 description: >-
   Lê a sua pasta de cursos e monta uma biblioteca no estilo Domestika:
@@ -27,7 +27,7 @@ repo: https://github.com/ShinSsa/shin-app-store
 support: https://github.com/ShinSsa/shin-app-store/issues
 gallery: []
 releaseNotes: >-
-  Ícone definitivo (também no menu do app e na Tela de Início do iPhone).
+  Corrige a inicialização: pastas de dados criadas com a permissão certa e o app não cai se não conseguir gravar.
 dependencies: []
 path: ""
 defaultUsername: ""

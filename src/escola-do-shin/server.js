@@ -54,17 +54,19 @@ let db = { index: {}, courses: {}, notes: [], activity: {}, categories: [] };
 let saveTimer = null;
 
 function loadDb() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.mkdirSync(COVER_DIR, { recursive: true });
+  try { fs.mkdirSync(DATA_DIR, { recursive: true }); fs.mkdirSync(COVER_DIR, { recursive: true }); }
+  catch (e) { console.error('Não consegui criar a pasta de dados', DATA_DIR, '-', e.message); }
   try { db = Object.assign(db, JSON.parse(fs.readFileSync(DB_FILE, 'utf8'))); }
   catch (e) { if (e.code !== 'ENOENT') console.error('Erro ao ler banco de dados:', e.message); }
 }
 function saveDb() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    const tmp = DB_FILE + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(db));
-    fs.renameSync(tmp, DB_FILE);
+    try {
+      const tmp = DB_FILE + '.tmp';
+      fs.writeFileSync(tmp, JSON.stringify(db));
+      fs.renameSync(tmp, DB_FILE);
+    } catch (e) { console.error('Não consegui salvar os dados em', DATA_DIR, '-', e.message); }
   }, 400);
 }
 function courseData(id) {
@@ -735,4 +737,5 @@ server.listen(PORT, '0.0.0.0', () => {
   scan();
   if (RESCAN_MIN > 0) setInterval(scan, RESCAN_MIN * 60 * 1000);
 });
+process.on('uncaughtException', e => console.error('Erro:', e));
 process.on('SIGTERM', () => { try { fs.writeFileSync(DB_FILE, JSON.stringify(db)); } catch (_) { } process.exit(0); });
