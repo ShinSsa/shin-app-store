@@ -4,7 +4,7 @@ name: FinanceQuest
 tagline: Finanças pessoais em poucos toques, com cartão, fixas e metas gamificadas
 icon: https://raw.githubusercontent.com/ShinSsa/shin-app-store/master/assets/financequest.png
 category: finance
-version: "1.0.0"
+version: "1.0.1"
 port: 8796
 description: >-
   Controle financeiro pessoal feito para o dia a dia ser rápido: digite o
@@ -31,7 +31,7 @@ repo: https://github.com/ShinSsa/shin-app-store
 support: https://github.com/ShinSsa/shin-app-store/issues
 gallery: []
 releaseNotes: >-
-  Primeira versão no Umbrel, com sincronização entre aparelhos.
+  Ícone definitivo.
 dependencies: []
 path: ""
 defaultUsername: ""
