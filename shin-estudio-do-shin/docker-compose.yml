@@ -10,7 +10,7 @@ services:
       PROXY_AUTH_WHITELIST: "/api/mcp"
 
   web:
-    image: ghcr.io/shinssa/estudio-do-shin:1.0.2
+    image: ghcr.io/shinssa/estudio-do-shin:1.0.3
     user: "1000:1000"
     init: true
     restart: on-failure
@@ -18,6 +18,8 @@ services:
       HOST: 0.0.0.0
       PORT: 8787
       SHIN_DATA: /data
+      SHIN_ROOT: /umbrel/Estúdio do Shin
     volumes:
       - ${APP_DATA_DIR}/data:/data
-      - ${UMBREL_ROOT}/data/storage:/storage
+      # pasta Home do app Arquivos do Umbrel
+      - ${UMBREL_ROOT}/home:/umbrel

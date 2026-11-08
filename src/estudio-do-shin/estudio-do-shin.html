@@ -6802,7 +6802,7 @@ $('#spentChip').onclick = e => openSpent(e.currentTarget);
 async function exportBackup() {
   toast('Preparando backup…');
   const pack = async arr => { const out = []; for (const o of arr) { const { blob, ...rest } = o; out.push({ ...rest, data: blob ? await blobToDataURL(blob) : null }); } return out; };
-  const file = new Blob([JSON.stringify({ app: 'estudio-do-shin', v: 2, exportedAt: new Date().toISOString(), items: await pack(state.items), projects: state.projects, elements: await pack(state.elements), templates: cfg.templates || [], canvases: await DB.all('canvases') })], { type: 'application/json' });
+  const file = new Blob([JSON.stringify({ app: 'estudio-do-shin', v: 2, exportedAt: new Date().toISOString(), items: await pack(state.items), projects: state.projects, elements: await pack(state.elements), templates: cfg.templates || [], canvases: await DB.all('canvases'), clips: await DB.all('clips') })], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(file);
   a.download = `estudio-do-shin-backup-${new Date().toISOString().slice(0,10)}.json`;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
@@ -6823,8 +6823,16 @@ $('#fileImport').onchange = async e => {
     for (const t of j.templates || []) if (!ht.has(t.id)) cfg.templates = [...(cfg.templates || []), t];
     saveCfg();
     const hi = new Set(state.items.map(i => i.id));
-    for (const r of j.items) { if (hi.has(r.id)) continue; const it = await unpack(r); await DB.put('gens', it); state.items.push(it); n++; }
+    for (const r of j.items) {
+      if (hi.has(r.id)) continue; const it = await unpack(r);
+      if (it.disk && it.disk.root !== DISK.root) delete it.disk;   // veio de outro computador: salva de novo na pasta deste servidor
+      await DB.put('gens', it); state.items.push(it); n++;
+    }
+    const hc = new Set((await DB.keys('clips')).map(String));
+    for (const c of j.clips || []) if (!hc.has(String(c.id))) await DB.put('clips', c);
+    if (j.clips?.length && typeof VID !== 'undefined') VID.reset();
     state.items.sort((a, b) => b.createdAt - a.createdAt); renderAll();
+    if (cfg.diskSave !== false && DISK.ok) diskSync(true);
     document.querySelector('.modal')?.remove();
     toast(`Importado: ${n} imagens, ${np} projetos, ${ne} elementos.`);
   } catch (err) { toast('Não consegui importar: ' + err.message); }
@@ -8685,7 +8693,7 @@ async function diskPick() {
   try {
     const j = await diskApi('/api/disk/pick', { method: 'POST' });
     if (j.noPicker) {   // servidor sem janela de pasta (Umbrel/Docker): digita o caminho
-      const v = prompt('Caminho da pasta no servidor.\n\n/data/imagens = pasta do próprio app\n/storage/... = armazenamento do Umbrel (inclui HDs externos em /storage/external/...)', DISK.root || '/data/imagens');
+      const v = prompt('Caminho da pasta no servidor.\n\n/umbrel/... = sua pasta Home do app Arquivos do Umbrel (ex.: /umbrel/Estúdio do Shin)\n/data/imagens = pasta interna do app', DISK.root || '/umbrel/Estúdio do Shin');
       return v && v.trim() ? v.trim().replace(/\/+$/, '') : null;
     }
     toast('Escolha a pasta na janela do Mac (pode aparecer atrás do navegador).');

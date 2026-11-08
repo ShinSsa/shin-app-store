@@ -74,7 +74,7 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.
 // A raiz pode ser qualquer pasta do Mac, de um HD externo (/Volumes/MeuHD/...) ou de
 // um compartilhamento de rede já montado no Finder (/Volumes/NomeDoCompartilhamento/...).
 const CONF_FILE = path.join(DATA, 'config.json');
-let conf = { root: IN_DOCKER ? path.join(DATA, 'imagens') : path.join(os.homedir(), 'Pictures', 'Estúdio do Shin') };
+let conf = { root: process.env.SHIN_ROOT || (IN_DOCKER ? path.join(DATA, 'imagens') : path.join(os.homedir(), 'Pictures', 'Estúdio do Shin')) };
 try { conf = { ...conf, ...JSON.parse(await readFile(CONF_FILE, 'utf8')) }; } catch {}
 const saveConf = () => writeFile(CONF_FILE, JSON.stringify(conf, null, 2)).catch(() => {});
 // nomes de pasta/arquivo seguros (sem barras, sem começar com ponto)
@@ -121,7 +121,7 @@ async function disk(u, req, res) {
   }
   if (u.pathname === '/api/disk/pick' && req.method === 'POST') {
     // janela nativa do macOS para escolher a pasta
-    if (IN_DOCKER || process.platform !== 'darwin') return send(res, 200, { path: null, noPicker: true, suggest: ['/data/imagens', '/storage'] });
+    if (IN_DOCKER || process.platform !== 'darwin') return send(res, 200, { path: null, noPicker: true, suggest: ['/umbrel/Estúdio do Shin', '/data/imagens'] });
     try { const p = await run('osascript', ['-e', 'POSIX path of (choose folder with prompt "Escolha a pasta para salvar as imagens do Estúdio do Shin")']); return send(res, 200, { path: p.replace(/\/$/, '') }); }
     catch { return send(res, 200, { path: null }); }
   }
