@@ -1,0 +1,32 @@
+manifestVersion: 1
+id: shin-feira-do-shin
+name: Feira do Shin
+tagline: Lista de compras com preços por mercado e conferência do cupom
+icon: https://raw.githubusercontent.com/ShinSsa/shin-app-store/master/assets/feira-do-shin.png
+category: finance
+version: "1.0.0"
+port: 8794
+description: >-
+  Lista de compras para orçar e comparar preços entre mercados, feiras e
+  barracas do bairro: modo mercado para anotar preços na gôndola, carrinho
+  com peso e desconto, calculadora de embalagens, conferência do cupom com
+  relatório de divergência e histórico de preços ao longo do ano.
+
+
+  Os dados ficam salvos no Umbrel e aparecem iguais no iPhone, no Mac e em
+  qualquer aparelho da rede. Sem conexão, o app continua salvando no
+  aparelho e envia quando o Umbrel voltar. O Umbrel guarda uma cópia de
+  segurança por dia (últimos 30 dias).
+developer: Ramon (ShinSsa)
+website: https://github.com/ShinSsa/shin-app-store
+submitter: ShinSsa
+submission: https://github.com/ShinSsa/shin-app-store
+repo: https://github.com/ShinSsa/shin-app-store
+support: https://github.com/ShinSsa/shin-app-store/issues
+gallery: []
+releaseNotes: >-
+  Primeira versão no Umbrel, com os dados sincronizados entre aparelhos.
+dependencies: []
+path: ""
+defaultUsername: ""
+defaultPassword: ""
