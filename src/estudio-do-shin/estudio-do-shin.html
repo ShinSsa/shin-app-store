@@ -119,8 +119,13 @@ main{margin-left:var(--sbw);padding:0 16px calc(300px + env(safe-area-inset-bott
 .card .tag{position:absolute;left:7px;top:7px;font-size:11px;padding:3px 7px;border-radius:6px;background:rgba(0,0,0,.6);
   backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#dfe3ea;font-weight:500;pointer-events:none}
 .card .ptag{position:absolute;left:7px;bottom:7px;font-size:11px;padding:3px 7px;border-radius:6px;background:rgba(0,0,0,.6);color:#dfe3ea;pointer-events:none;max-width:calc(100% - 14px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.card .fav{position:absolute;right:7px;top:7px;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;
-  background:rgba(0,0,0,.55);color:#fff;opacity:0;transition:.2s}
+.card .acts2{position:absolute;right:7px;top:7px;display:flex;flex-direction:column;gap:6px;z-index:2}
+.card .fav,.card .ga{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;
+  background:rgba(0,0,0,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#fff;opacity:0;transition:.2s;border:0;cursor:pointer;padding:0}
+.card .ga svg{width:15px;height:15px}.card .fav:hover,.card .ga:hover{background:rgba(0,0,0,.8)}
+.card:hover .ga{opacity:1}
+@media(hover:hover){.card .rthumbs{transition:opacity .2s}.card:hover .rthumbs{opacity:0}}
+@media(hover:none){.card .ga{display:none}}
 .card .fav svg{width:16px;height:16px}
 .card .fav.on{opacity:1;color:#ff5a5f}
 .card:hover .fav{opacity:1}
@@ -148,7 +153,7 @@ main{margin-left:var(--sbw);padding:0 16px calc(300px + env(safe-area-inset-bott
 
 /* ---------- composer ---------- */
 .composer{position:fixed;left:calc(var(--sbw) + (100vw - var(--sbw)) / 2);transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom));z-index:30;
-  width:min(860px,calc(100vw - var(--sbw) - 20px));background:var(--cmp);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  width:min(1080px,calc(100vw - var(--sbw) - 20px));background:var(--cmp);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
   border:1px solid var(--line2);border-radius:18px;box-shadow:0 20px 60px var(--shadow);padding:10px}
 .dest{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--tx3);padding:2px 8px 6px}
 .dest svg{width:13px;height:13px}
@@ -262,6 +267,10 @@ select.inp{appearance:auto}
 .side details summary{cursor:pointer;color:var(--tx3)}
 .side details div{margin-top:6px;white-space:pre-wrap;line-height:1.45}
 .side .refs{padding:10px 0 0}
+.refbig{display:flex;flex-wrap:wrap;gap:8px;padding:12px 0 2px}
+.refbig figure{margin:0;width:76px}
+.refbig img{width:76px;height:76px;object-fit:cover;border-radius:10px;border:1px solid var(--line2);display:block;background:var(--bg3)}
+.refbig figcaption{font-size:11px;color:var(--tx3);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dl{display:grid;grid-template-columns:auto 1fr;gap:7px 12px;font-size:13px}
 .dl dt{color:var(--tx3)}
 .dl dd{color:var(--tx);text-align:right;font-variant-numeric:tabular-nums;word-break:break-word}
@@ -5672,7 +5681,11 @@ function renderGrid() {
       ${refThumbs(it)}
       <span class="tag">${esc(it.modelLabel)}</span>
       ${p ? `<span class="ptag">${esc(p.name)}${it.folderId && folderOf(p, it.folderId) ? ' / ' + esc(folderOf(p, it.folderId).name) : ''}</span>` : ''}
-      <button class="fav ${it.fav ? 'on' : ''}" data-a="fav" title="Favoritar">${it.fav ? I.heart : I.heartO}</button>
+      <span class="acts2"><button class="fav ${it.fav ? 'on' : ''}" data-a="fav" title="Favoritar">${it.fav ? I.heart : I.heartO}</button>
+        <button class="ga" data-ga="down" title="Baixar">${I.down}</button>
+        <button class="ga" data-ga="copy" title="Copiar prompt">${I.copy}</button>
+        ${isVid(it) ? `<button class="ga" data-ga="vtl" title="Adicionar à timeline">${I.plus}</button>` : `<button class="ga" data-ga="asRef" title="Usar como referência">${I.img}</button>`}
+        <button class="ga" data-ga="more" title="Mais opções">${I.more}</button></span>
     </div>` };
   }));
   layoutGrid(cards);
@@ -6243,6 +6256,16 @@ $('#grid').addEventListener('click', async e => {
   const c = e.target.closest('.card[data-id]'); if (!c) return;
   const it = state.items.find(x => x.id === c.dataset.id); if (!it) return;
   if (e.target.closest('[data-a="fav"]')) { await toggleFav(it); return; }
+  const ga = e.target.closest('[data-ga]')?.dataset.ga;
+  if (ga === 'down') return download(it);
+  if (ga === 'copy') { try { await navigator.clipboard.writeText(it.prompt); toast('Prompt copiado.'); } catch { toast('Não deu pra copiar.'); } return; }
+  if (ga === 'vtl') return VID.addItem(it);
+  if (ga === 'asRef') { const b = e.target.closest('[data-ga]');
+    openPop(b, `<h6>Usar como referência de</h6>${Object.entries(RTYPES).map(([k, l]) => `<button class="opt" data-k="${k}">${l}</button>`).join('')}`, async ev => {
+      const o = ev.target.closest('[data-k]'); if (!o) return; closePop();
+      const blob = it.blob || await urlToBlob(it.url); if (!blob) return toast('Não consegui carregar a imagem.');
+      if (addRef(await fileToRef(blob, o.dataset.k))) toast(`Adicionada como referência de ${RTYPES[o.dataset.k]}.`);
+    }, { width: 220 }); return; }
   openLightbox(visibleItems().indexOf(it));
 });
 async function toggleFav(it) { it.fav = !it.fav; await DB.put('gens', it); renderGrid(); renderSidebar(); if (state.lbIndex >= 0) renderLightbox(); }
@@ -6273,7 +6296,7 @@ function renderLightbox() {
     <aside class="side">
       <div class="sec"><h5>Prompt <button data-a="copy">${I.copy} Copiar</button></h5><div class="ptxt">${esc(it.prompt)}</div>
         ${els.length ? `<div class="refs">${els.map(e => `<span class="ref">${e.blob ? `<img class="th" src="${esc(srcOf(e))}">` : `<span class="th">${esc(e.name[0])}</span>`}<b>@${esc(e.handle)}</b></span>`).join('')}</div>` : ''}
-        ${it.refs?.length ? `<div class="refs">${it.refs.map(r => `<span class="ref" title="${esc(RTYPES[r.type])} · ${esc(RSTR[r.strength] || '')}"><img class="th" src="${esc(r.data)}"><b style="font-family:var(--font)">${esc(r.label || RTYPES[r.type])}</b></span>`).join('')}</div>` : ''}
+        ${it.refs?.length ? `<div class="refbig">${it.refs.map(r => `<figure title="${esc(r.label || RTYPES[r.type] || '')} · ${esc(RSTR[r.strength] || '')}"><img src="${esc(r.data)}" alt=""><figcaption>${esc(r.label || RTYPES[r.type] || 'Ref.')}</figcaption></figure>`).join('')}</div>` : ''}
         ${it.enhanced ? `<details><summary>Prompt melhorado pela IA</summary><div>${esc(it.enhanced)}</div></details>` : ''}
         ${it.finalPrompt ? `<details><summary>Prompt enviado ao modelo</summary><div>${esc(it.finalPrompt)}</div></details>` : ''}
         ${it.neg ? `<div class="neg"><b>Negativo:</b> ${esc(it.neg)}</div>` : ''}</div>
