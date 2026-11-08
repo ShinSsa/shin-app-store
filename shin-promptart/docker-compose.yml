@@ -1,0 +1,20 @@
+version: "3.7"
+
+services:
+  app_proxy:
+    environment:
+      # <app-id>_<serviço>_1
+      APP_HOST: shin-promptart_web_1
+      APP_PORT: 8798
+
+  web:
+    image: ghcr.io/shinssa/promptart:1.0.0
+    # começa como root só para preparar /data; o PHP roda como 1000 (o usuário do Umbrel)
+    init: true
+    restart: on-failure
+    environment:
+      PROMPTART_NOME: Ramon
+      TZ: America/Sao_Paulo
+    volumes:
+      # banco (SQLite), fotos e chave ficam aqui
+      - ${APP_DATA_DIR}/data:/data

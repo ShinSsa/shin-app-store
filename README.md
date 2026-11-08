@@ -14,6 +14,7 @@ App Store → menu ⋯ (canto superior) → **Community App Stores** → cole
 | Escola do Shin | `shin-escola-do-shin` | `ghcr.io/shinssa/escola-do-shin` |
 | Feira | `shin-feira-do-shin` | `ghcr.io/shinssa/feira-do-shin` |
 | FinanceQuest | `shin-financequest` | `ghcr.io/shinssa/financequest` |
+| PromptArt (pessoal) | `shin-promptart` | `ghcr.io/shinssa/promptart` |
 
 ## Atualizar um app
 1. Troque os arquivos em `src/<app>/` e aumente o número em `src/<app>/VERSION`.
@@ -31,3 +32,8 @@ Depois de instalar, clique com o botão direito no ícone › configurações �
 | `/dados` | Home › escola-do-shin › dados (progresso e anotações) | Leitura e gravação |
 
 Mais de uma pasta de cursos (ex.: HD externo): **Adicionar pasta personalizada** › serviço `web`, caminho `/cursos2` (e `/cursos3` para uma terceira), somente leitura.
+
+## PromptArt: trazer os dados do site
+O backup sai do servidor do site com `src/promptart/ferramentas/exportar-do-site.php`
+(só lê; não muda nada no site) e entra pelo menu do avatar › **Importar backup (.zip)**.
+Importar substitui tudo o que está no app do Umbrel.

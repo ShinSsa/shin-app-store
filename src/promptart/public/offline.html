@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#007aff">
+<title>PromptArt</title>
+<!--
+  Tela de "sem conexão" do app instalado.
+  O sw.js entrega esta página quando uma tela do site não carrega por falta
+  de internet. Ela não mostra nada da conta — de propósito: sem internet o
+  servidor não confere o login, então nada do usuário aparece.
+  Tudo fica aqui dentro (nada de app.css): sem internet não há de onde buscar.
+-->
+<style>
+:root{--bg:#e6eaef;--card:#fff;--border:#d9e0e8;--text:#1d2733;--muted:#77808d;--accent:#007aff;--accent-h:#005ecb;}
+[data-theme="dark"]{--bg:#171a1f;--card:#21252b;--border:#333942;--text:#eef2f7;--muted:#8d96a3;--accent:#2b90ff;--accent-h:#57a8ff;}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
+  display:flex;align-items:center;justify-content:center;padding:24px 16px;-webkit-text-size-adjust:100%;}
+.caixa{width:100%;max-width:380px;background:var(--card);border:1px solid var(--border);border-radius:22px;
+  padding:32px 24px 28px;text-align:center;box-shadow:0 8px 30px rgba(31,45,61,.10);}
+.caixa img{width:76px;height:76px;border-radius:18px;display:block;margin:0 auto 18px;}
+h1{font-size:1.25rem;font-weight:800;margin-bottom:.6rem;}
+p{font-size:.92rem;line-height:1.55;color:var(--muted);margin-bottom:1.5rem;}
+button{font-family:inherit;font-size:1rem;font-weight:600;color:#fff;background:var(--accent);border:0;border-radius:999px;
+  padding:.85rem 1.6rem;width:100%;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+button:active,button:hover{background:var(--accent-h);}
+</style>
+<script>
+(function(){
+  var t = 'light';
+  try { t = localStorage.getItem('theme') || 'light'; } catch (e) {}
+  document.documentElement.setAttribute('data-theme', t);
+})();
+</script>
+</head>
+<body>
+<div class="caixa">
+  <img src="/icons/icon-192.png" alt="PromptArt">
+  <h1 id="titulo">Sem conexão</h1>
+  <p id="texto">O PromptArt precisa de internet para abrir. Confira o Wi-Fi ou os dados móveis e tente de novo.</p>
+  <button id="botao" onclick="location.reload()">Tentar de novo</button>
+</div>
+<script>
+// mesmo idioma do aparelho; português quando não for espanhol nem inglês
+(function(){
+  var textos = {
+    es: ['Sin conexión', 'PromptArt necesita internet para abrir. Revisa el Wi-Fi o los datos móviles e inténtalo de nuevo.', 'Intentar de nuevo'],
+    en: ['No connection', 'PromptArt needs the internet to open. Check your Wi-Fi or mobile data and try again.', 'Try again']
+  };
+  var idioma = (navigator.language || 'pt').slice(0, 2).toLowerCase();
+  var t = textos[idioma];
+  if (!t) return;
+  document.documentElement.lang = idioma;
+  document.getElementById('titulo').textContent = t[0];
+  document.getElementById('texto').textContent = t[1];
+  document.getElementById('botao').textContent = t[2];
+})();
+// a internet voltou: tenta sozinho, sem a pessoa precisar tocar
+window.addEventListener('online', function(){ location.reload(); });
+</script>
+</body>
+</html>

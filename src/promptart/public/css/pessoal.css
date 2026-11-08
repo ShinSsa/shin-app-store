@@ -1,0 +1,14 @@
+/* PromptArt pessoal (Umbrel): esconde o que era para outras pessoas.
+   O app.css/mobile.css são os mesmos do site. */
+body.pessoal [onclick^="sharePromptToCommunity"],
+body.pessoal #bonusBtn,
+body.pessoal #bonusBackBtn,
+body.pessoal #communityPage,
+body.pessoal .npill-bonus,
+body.pessoal #navCommunity,
+body.pessoal .user-menu-storage-bar { display: none !important; }
+
+body.pessoal button.user-menu-item {
+  width: 100%; text-align: left; background: none; border: 0;
+  font: inherit; color: inherit; cursor: pointer;
+}

@@ -1,0 +1,33 @@
+manifestVersion: 1
+id: shin-promptart
+name: PromptArt
+tagline: Seus prompts de IA organizados em cards com a foto do resultado
+icon: https://raw.githubusercontent.com/ShinSsa/shin-app-store/master/assets/promptart.png
+category: ai
+version: "1.0.0"
+port: 8798
+description: >-
+  Versão pessoal do PromptArt, só para você, rodando no seu Umbrel. Guarde
+  seus prompts de IA em categorias e subcategorias, com a foto do resultado,
+  favoritos, busca e o Gerador de Prompts completo.
+
+
+  Sem cadastro, sem login próprio, sem planos: quem entra é quem já passou
+  pela senha do Umbrel. Não tem comunidade, biblioteca bônus nem painel ADM.
+
+
+  Para trazer tudo do site, use o backup em .zip (menu do seu avatar ›
+  Importar backup). O mesmo menu baixa um backup completo daqui, com as fotos.
+developer: Ramon (ShinSsa)
+website: https://github.com/ShinSsa/shin-app-store
+submitter: ShinSsa
+submission: https://github.com/ShinSsa/shin-app-store
+repo: https://github.com/ShinSsa/shin-app-store
+support: https://github.com/ShinSsa/shin-app-store/issues
+gallery: []
+releaseNotes: >-
+  Primeira versão pessoal do PromptArt.
+dependencies: []
+path: "/app"
+defaultUsername: ""
+defaultPassword: ""

@@ -1,0 +1,69 @@
+# Monta a imagem Docker do PromptArt pessoal sempre que algo em src/promptart muda.
+# Antes de publicar, liga a imagem de verdade e testa: abrir o app, enviar foto,
+# baixar e reimportar o backup. Só publica se tudo passar.
+# A versão vem do arquivo src/promptart/VERSION.
+name: PromptArt (imagem Docker)
+on:
+  push:
+    branches: [master, main]
+    paths: ["src/promptart/**", ".github/workflows/promptart.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+  packages: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        run: echo "version=$(cat src/promptart/VERSION | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Monta para teste (amd64)
+        uses: docker/build-push-action@v6
+        with:
+          context: src/promptart
+          platforms: linux/amd64
+          load: true
+          tags: promptart:teste
+          cache-to: type=gha,mode=max
+          cache-from: type=gha
+
+      - name: Testa a imagem
+        run: |
+          set -e
+          mkdir -p /tmp/dados && sudo chown 1000:1000 /tmp/dados
+          docker run -d --name pa -p 8798:8798 -v /tmp/dados:/data promptart:teste
+          for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:8798/app && break; sleep 2; done
+          docker logs pa | tail -20
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8798/app)" = 200
+          TOKEN=$(curl -s -c cj -b cj http://localhost:8798/app | grep -o 'name="csrf-token" content="[^"]*"' | sed 's/.*content="//;s/"//')
+          H=(-b cj -c cj -H "Accept: application/json" -H "X-CSRF-TOKEN: $TOKEN")
+          curl -sf "${H[@]}" -X POST -H "Content-Type: application/json" -d '{"name":"Teste"}' http://localhost:8798/api/categories
+          curl -sf "${H[@]}" -F file=@assets/promptart.png http://localhost:8798/api/uploads | tee /tmp/up.json
+          grep -q '"thumb_url"' /tmp/up.json
+          ls -la /tmp/dados/storage/app/uploads/uploads/1/thumbs/
+          curl -sf -b cj -o /tmp/b.zip http://localhost:8798/backup/exportar && unzip -l /tmp/b.zip
+          curl -sf "${H[@]}" -F arquivo=@/tmp/b.zip http://localhost:8798/backup/importar
+          echo
+          ls -la /tmp/dados
+          test "$(stat -c %u /tmp/dados/promptart.sqlite)" = 1000
+          docker logs pa 2>&1 | grep -i -E "error|exception" && exit 1 || echo "== TUDO CERTO =="
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: src/promptart
+          platforms: linux/amd64,linux/arm64
+          push: true
+          cache-from: type=gha
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          tags: |
+            ghcr.io/shinssa/promptart:${{ steps.v.outputs.version }}
+            ghcr.io/shinssa/promptart:latest

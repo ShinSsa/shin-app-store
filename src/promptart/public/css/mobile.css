@@ -1,0 +1,551 @@
+/* ══════════════════════════════════════════════════════════════════
+   PROMPTART NO CELULAR
+
+   Desenho: Claude Design, protótipo "PromptArt Mobile.dc.html".
+   Especificação: docs/ID NOVA PROMPTART/MOBILE/PromptArt Mobile Frontend/
+   INSTRUCOES-CLAUDE-CODE.md — as seções (§) abaixo seguem a numeração dela.
+
+   Tudo aqui fica dentro de (max-width:700px): o computador não é tocado.
+   Os elementos que só existem para o celular ficam escondidos no
+   computador pelo próprio app.css (bloco "PEÇAS DA VERSÃO CELULAR").
+
+   Duas coisas que o app.js faz sozinho e que este arquivo precisa respeitar:
+   • ajustarAlturaDosPaineis() grava height/max-height DIRETO no elemento em
+     .cat-column, .panel-body, .painel-cheio, .gen-meio, .gen-rail e
+     .gen-direita. Estilo no elemento vence CSS comum — por isso o
+     !important nesses seis. Aqui a altura vem do layout, não da conta.
+   • ligarBarra() cria o trilho fino com bolinha azul (.barra-lateral) em
+     todo contêiner que rola. É o trilho que o desenho pede; só reposiciono.
+   ══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 700px) {
+
+/* ══ §3 ESTRUTURA ═══════════════════════════════════════════════════
+   A página não rola: topo parado, e cada tela ocupa o que sobra até o
+   pé. Quem rola é a lista de dentro do painel. O Gerador é a exceção
+   (§10): lá a tela inteira rola. */
+/* O navegador do celular desenha um realce ao tocar qualquer botão, e ele é
+   RETANGULAR — ignora o arredondado. Era o quadrado que piscava na barra de
+   baixo antes da pílula azul aparecer. O protótipo desliga; aqui também. */
+button,a,[onclick],input,label{-webkit-tap-highlight-color:transparent;}
+
+/* A página NUNCA rola — só as listas de dentro. overflow:hidden no body
+   basta no Chrome, mas o Safari do iPhone ignora: se a página puder rolar
+   um pixel que seja (a barra de endereço encolhe e cresce), ele deixa o dedo
+   arrastar tudo, e o topo some sob a barra de status. Com o body fixo na
+   tela não há para onde rolar. Visto num iPhone 12 Pro em 26/09/2026. */
+html{height:100%;overflow:hidden;overscroll-behavior:none;}
+body{position:fixed;inset:0;width:100%;height:auto;overflow:hidden;overscroll-behavior:none;
+  display:flex;flex-direction:column;-webkit-text-size-adjust:100%;}
+body > header,
+body > .page-head{flex:0 0 auto;}
+body > .page.active{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;}
+body > .page.active > main{flex:1 1 auto;min-height:0;padding:0;margin:0;
+  display:flex;flex-direction:column;}
+
+/* altura calculada pelo app.js: no celular quem manda é o layout */
+.cat-column,.panel-body,.painel-cheio,.gen-meio,.gen-rail,.gen-direita{
+  height:auto !important;max-height:none !important;}
+/* o ranking não passa pela conta do JS, mas tem altura fixa no app.css */
+.rank-column{height:auto;min-height:0;}
+
+/* ══ §3 TOPO ════════════════════════════════════════════════════════ */
+header{position:relative;top:auto;height:auto;min-height:0;
+  padding:env(safe-area-inset-top,0px) 12px 0;
+  display:flex;flex-wrap:wrap;align-items:center;gap:0;
+  background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;border-bottom:none;}
+.logo{order:1;height:60px;display:flex;align-items:center;}
+.logo-icon{height:44px !important;width:auto;}
+
+.header-actions{order:2;margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:nowrap;}
+.header-actions .round-btn{width:44px;height:44px;padding:0;border-radius:50%;border:none;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  box-shadow:0 2px 8px var(--shadow);}
+#bellBtn{background:var(--card);color:var(--accent);position:relative;}
+#bellBtn svg{width:22px;height:22px;}
+#bellBtn .bell-count{position:absolute;top:3px;right:3px;min-width:17px;height:17px;padding:0 4px;
+  border-radius:9px;font-size:11px;font-weight:800;line-height:14px;text-align:center;
+  border:1.5px solid var(--card);}
+#shortcutBtn{background:var(--accent);color:#fff;font-size:24px;font-weight:800;}
+
+/* avatar 50px, moldura 2,5px, coroa acima sem cortar */
+.user-menu-wrap{padding-top:6px;}
+/* a moldura (.av-wrap) tem width/height gravados no elemento pela view — por
+   isso o !important também nela, não só na foto */
+.avatar-btn .av-wrap,
+.avatar-btn .av,
+.avatar-btn .av-fallback{width:50px !important;height:50px !important;}
+.avatar-btn .av-fallback{font-size:18px !important;overflow:hidden;}
+.avatar-btn .av-common{box-shadow:0 0 0 2.5px var(--accent);}
+.avatar-btn .av-premium{box-shadow:0 0 0 2.5px #e0a800;}
+header .av-crown{top:-17px;font-size:17px !important;}
+
+/* busca global: sai do centro e vira a linha de baixo, inteira */
+#headerSearchWrap{order:3;position:relative;left:auto;top:auto;transform:none;
+  flex:0 0 100%;width:100%;max-width:none;margin:6px 0 0;padding:0 2px;height:46px;}
+#headerSearchWrap .header-search{height:46px;width:100%;border-radius:var(--r-pill);border:none;
+  background:var(--card);box-shadow:0 1px 4px var(--shadow);
+  font-size:16px;padding:0 48px;}          /* 16px: menos que isso o iPhone dá zoom */
+#headerSearchWrap .search-ico{position:absolute;left:18px;top:50%;transform:translateY(-50%);
+  width:20px;height:20px;color:var(--text);pointer-events:none;}
+/* transform:none — o app.css centraliza com translateY(-50%), que somado ao
+   top daqui jogava o X para fora da barra */
+#headerSearchWrap .search-clear{position:absolute;right:2px;top:2px;width:42px;height:42px;transform:none;
+  background:transparent;border:none;box-shadow:none;color:var(--muted);}
+
+/* ══ §3 SAUDAÇÃO E CONTADORES ═══════════════════════════════════════ */
+.page-head{display:block;padding:12px 16px 0;margin:0;}
+.page-head-left{display:block;}
+.page-title{font-size:25px;font-weight:300;letter-spacing:-.01em;line-height:1.15;margin:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+.page-counters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;
+  margin:8px 0 0 6px;padding:0;}
+.counter{display:grid;grid-template-columns:22px auto;column-gap:5px;align-items:center;
+  justify-content:start;min-width:0;}
+.counter > div{display:contents;}            /* número e rótulo viram células da grade */
+.counter svg{width:22px;height:22px;padding:5px;border-radius:50%;box-sizing:border-box;
+  background:var(--surface2);color:var(--text);}
+.counter strong{font-size:40px;font-weight:300;line-height:1;letter-spacing:-.02em;}
+.counter span{grid-column:1 / -1;font-size:13px;margin-top:1px;color:var(--text);white-space:nowrap;}
+
+/* contadores só na Home — nem no Bônus, que usa a mesma tela */
+body:not(:has(#homePage.active)) .page-counters,
+body:has(#catPanel.somente-leitura) .page-counters{display:none;}
+
+/* ══ §4 O PAINEL E O DEGRAU ═════════════════════════════════════════
+   Mesma montagem do protótipo: o desenho (61px) no topo, o fundo do corpo
+   começando em 60px, e a lista começando em 42px, logo abaixo da faixa da
+   aba. O fundo NÃO pode começar em 44px: o canto do corpo apareceria
+   quadrado atrás da curva do desenho. */
+/* stretch: o app.css usa align-items:start na grade do computador, e aqui
+   isso encolheria o painel até o conteúdo — que é todo absoluto, logo zero */
+.home-layout{display:flex;flex-direction:column;align-items:stretch;gap:0;}
+.home-layout > .cat-panel{flex:1 1 auto;min-height:0;position:relative;margin:14px 12px 12px;}
+#communityPage .home-layout > .cat-panel{margin-top:16px;}
+#catPanelContent{position:absolute;inset:0;}
+
+.panel-notch{position:absolute;inset:0;height:auto;display:block;margin:0;pointer-events:none;}
+.panel-notch > *{pointer-events:auto;}
+.degrau-svg{display:block !important;position:absolute;left:0;top:0;overflow:visible;pointer-events:none;}
+.degrau-svg path{fill:var(--painel);}
+/* o fundo do corpo, sob a lista */
+.panel-notch::after{content:'';position:absolute;left:0;right:0;top:60px;bottom:0;
+  background:var(--painel);border-radius:0 0 21px 21px;pointer-events:none;}
+
+.notch-title{position:absolute;left:18px;top:7px;padding:0;margin:0;min-height:0;
+  background:none;border-radius:0;max-width:var(--aba-max,55%);z-index:2;transition:opacity .15s;}
+.notch-title::after{display:none;}
+.notch-title .proj-page-title{font-size:22px;font-weight:400;letter-spacing:-.01em;line-height:28px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.notch-title .proj-page-desc{display:none;}
+
+.notch-tools{position:absolute;right:4px;top:-4px;margin:0;padding:0;gap:8px;
+  display:flex;align-items:center;flex-wrap:nowrap;background:none;width:auto;z-index:3;}
+
+/* a lista: é ela que rola */
+.panel-body{position:absolute;left:0;right:0;top:42px;bottom:0;z-index:1;
+  overflow-y:auto;overflow-x:hidden;background:transparent;border:none;border-radius:0 0 21px 21px;
+  padding:10px 22px 120px 12px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+/* trilho da bolinha azul: dentro da folga de 22px à direita */
+.cat-panel .barra-lateral{z-index:2;}
+
+/* ══ §5 BOTÕES DO DEGRAU ════════════════════════════════════════════
+   Todos círculos de 42px. O texto some com font-size:0 no botão; o
+   ícone tem tamanho próprio. */
+.notch-tools .notch-new,
+.notch-tools .subcat-drop-btn,
+.notch-tools .tbtn,
+.notch-tools .comm-filtro-btn,
+.notch-search{
+  width:42px !important;height:42px;min-width:42px !important;max-width:42px;
+  flex:0 0 42px !important;padding:0;margin:0;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;font-size:0;gap:0;}
+
+.notch-tools .notch-new{background:var(--accent);color:#fff;border:none;box-shadow:0 3px 10px var(--shadow-lg);}
+.notch-tools .notch-new svg{width:22px;height:22px;}
+.notch-tools .tbtn-solid{background:var(--accent);color:#fff;border:none;box-shadow:0 3px 10px var(--shadow-lg);}
+.notch-tools .tbtn svg{width:21px;height:21px;}
+
+/* subcategorias: ▲▼ no lugar do rótulo */
+.notch-tools .subcat-drop{position:static;flex:0 0 auto;}
+.notch-tools .subcat-drop-btn{background:var(--card);color:var(--text);border:none;box-shadow:0 3px 10px var(--shadow);}
+.notch-tools .subcat-drop-btn > svg:not(.ico-subcat),
+#subcatDropLabel{display:none;}
+.notch-tools .ico-subcat{display:block !important;width:20px;height:20px;}
+/* filtro ativo: fundo azul-claro */
+.notch-tools .subcat-drop.tem-filtro .subcat-drop-btn,
+.notch-tools .subcat-drop-btn.ativo{background:var(--accent-soft);color:var(--accent);}
+/* o menu abre como cartão de 250px abaixo dos botões */
+.notch-tools .subcat-drop-menu{position:absolute;right:0;top:48px;left:auto;width:250px;max-height:60dvh;
+  overflow-y:auto;border-radius:18px;z-index:20;}
+
+/* busca da categoria: círculo com lupa; aberta, pílula na linha toda */
+.notch-search{position:relative;overflow:hidden;background:var(--card);border:none;
+  box-shadow:0 3px 10px var(--shadow);}
+.notch-search > .sw-ico,
+.notch-search > input,
+.notch-search > .search-clear,
+.notch-search > .notch-search-fechar{display:none;}
+.notch-search > .notch-search-toggle{display:flex !important;width:42px;height:42px;border:none;
+  background:none;color:var(--text);align-items:center;justify-content:center;padding:0;border-radius:50%;}
+.notch-search > .notch-search-toggle svg{width:20px;height:20px;}
+
+.busca-aberta .notch-search{position:absolute;left:6px;right:4px;top:-5px;width:auto !important;
+  max-width:none;height:44px;border-radius:var(--r-pill);z-index:6;justify-content:flex-start;
+  box-shadow:0 4px 16px var(--shadow-lg);}
+.panel-notch.busca-aberta .notch-search{left:calc(6px - var(--notch-esq, 0px));}
+.busca-aberta .notch-search > .notch-search-toggle{display:none !important;}
+.busca-aberta .notch-search > .sw-ico{display:block;position:static;flex:0 0 auto;margin-left:16px;
+  width:18px;height:18px;color:var(--muted);transform:none;}
+.busca-aberta .notch-search > input{display:block;flex:1 1 auto;min-width:0;height:44px;border:none;
+  background:transparent;font-size:16px;padding:0 8px 0 10px;border-radius:0;box-shadow:none;outline:none;}
+.busca-aberta .notch-search > .notch-search-fechar{display:flex !important;flex:0 0 42px;width:42px;height:42px;
+  margin-right:1px;border:none;border-radius:50%;background:var(--surface2);color:var(--text);
+  align-items:center;justify-content:center;padding:0;}
+.busca-aberta .notch-title{opacity:0;pointer-events:none;}
+/* na marcação o X vem antes da lupa e do campo; a ordem visual é lupa · campo · X */
+.busca-aberta .notch-search > .sw-ico{order:1;}
+.busca-aberta .notch-search > input{order:2;}
+.busca-aberta .notch-search > .notch-search-fechar{order:3;}
+/* os outros botões ficam atrás da pílula; somem enquanto ela está aberta */
+.busca-aberta .notch-tools > :not(.notch-search){visibility:hidden;}
+/* a busca ocupa a linha a partir da borda esquerda do painel, não das ferramentas */
+.panel-notch.busca-aberta .notch-tools{left:0;}
+
+/* Comunidade: as pílulas de filtro num cartão que abre pelo botão */
+.notch-tools .comm-filtro{display:block;position:static;flex:0 0 auto;}
+.notch-tools .comm-filtro-btn{display:inline-flex !important;background:var(--card);color:var(--text);
+  border:none;box-shadow:0 3px 10px var(--shadow);}
+.notch-tools .comm-filtro-btn svg{width:20px;height:20px;}
+.notch-tools .comm-filtro-menu{display:none;}
+.notch-tools .comm-filtro.aberto .comm-filtro-menu{display:flex;flex-direction:column;gap:6px;
+  position:absolute;right:0;top:48px;width:250px;padding:8px;z-index:20;
+  background:var(--card);border-radius:18px;box-shadow:0 12px 36px var(--shadow-lg);}
+.notch-tools .comm-filtro-menu .fpill{width:100%;height:44px;justify-content:flex-start;gap:10px;
+  padding:0 14px;font-size:15px;border-radius:12px;}
+.notch-tools .comm-filtro-menu .fpill svg{width:18px;height:18px;flex-shrink:0;}
+
+/* ══ §8 CARD DE PROMPT ══════════════════════════════════════════════
+   No computador é um card de camadas numa proporção fixa, com o painel
+   branco subindo no hover. Aqui vira card corrido: foto em cima, título,
+   resumo, ações e o Copiar — sempre à vista, um toque só. */
+.cards-grid{display:flex;flex-direction:column;gap:12px;padding:0;}
+.prompt-card{aspect-ratio:auto;max-width:none;width:100%;height:auto;padding:10px;
+  display:flex;flex-direction:column;border:none;border-radius:22px;
+  box-shadow:0 2px 10px var(--shadow);}
+.prompt-card:hover{transform:none;box-shadow:0 2px 10px var(--shadow);}
+
+.pc-media{position:relative;inset:auto;top:auto;left:auto;right:auto;bottom:auto !important;
+  width:100%;aspect-ratio:1.24;border-radius:18px;background:var(--surface2);flex:0 0 auto;}
+.pc-thumb img,.pc-thumb video{object-position:top center !important;}
+.pc-scrim,.pc-over{display:none;}
+
+.pc-tag{top:22px;left:22px;font-size:12px;font-weight:700;padding:6px 11px;max-width:60%;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pc-top-actions{top:18px;right:18px;}
+.pc-round{width:42px;height:42px;background:rgba(0,0,0,.28);}
+.pc-round svg{width:20px;height:20px;}
+.pc-nav-btn{width:42px !important;height:42px !important;}
+.pc-nav-btn svg{width:16px;height:16px;}
+
+.pc-panel{position:static;inset:auto;opacity:1;pointer-events:auto;overflow:visible;
+  padding:14px 8px 4px;gap:8px;background:none;}
+.pc-panel .pc-title{font-size:21px;font-weight:800;line-height:1.25;}
+.pc-panel .pc-desc{font-size:13px;}
+.pc-panel .pc-preview{font-size:15px;line-height:1.42;max-height:none;-webkit-line-clamp:3;}
+
+/* ações à esquerda, contagem de caracteres à direita */
+.pc-footer{margin-top:4px;gap:8px;}
+.pc-footer .pc-actions{order:1;gap:8px;}
+.pc-footer .pc-chars{order:2;margin-left:auto;font-size:13px;}
+.pc-actions .ibtn,.pc-actions .ibtn-sm{width:42px;height:42px;border-radius:50%;padding:0;}
+.pc-actions .ibtn svg{width:18px;height:18px;}
+
+.pc-copy{height:52px;padding:0;margin:8px 0 2px;font-size:17px;font-weight:700;gap:8px;}
+.pc-copy svg{width:18px;height:18px;}
+
+/* "Novo card" tracejado: no celular sai da lista, o "+" do degrau já faz isso */
+.cards-grid > .new-card-btn{display:none;}
+
+/* ══ §6 BARRA DE BAIXO ══════════════════════════════════════════════
+   São as mesmas pílulas do computador, presas embaixo e só com ícone.
+   flex:1 faz a barra se redistribuir sozinha quando o plano Básico
+   esconde Bônus e Gerador. */
+.page-head .nav-pills{position:fixed;z-index:300;margin:0;
+  left:12px;bottom:calc(24px + env(safe-area-inset-bottom,0px));
+  width:calc(100% - 12px - 12px - 64px - 10px);height:64px;padding:6px;gap:2px;
+  display:flex;flex-wrap:nowrap;align-items:stretch;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r-pill);
+  box-shadow:0 8px 28px var(--shadow-lg);}
+.page-head .nav-pills .npill{flex:1 1 0;min-width:0;height:auto;padding:0;margin:0;font-size:0;gap:0;
+  border:none;border-radius:var(--r-pill);background:none;color:var(--text);
+  display:flex;align-items:center;justify-content:center;}
+.page-head .nav-pills .npill svg{width:27px;height:27px;}
+/* No computador a pílula tem transition:all, e no toque o :hover fica grudado.
+   Aqui a troca de aba anima só a cor, e o hover não pinta nada. */
+.page-head .nav-pills .npill{transition:background-color .18s ease,color .18s ease;}
+.page-head .nav-pills .npill:hover{border-color:transparent;color:var(--text);}
+.page-head .nav-pills .npill:focus{outline:none;}
+.page-head .nav-pills .npill:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+/* Bônus e Gerador têm cor própria no computador; aqui a barra é uma só */
+.page-head .nav-pills .npill-bonus,
+.page-head .nav-pills .npill-gen{background:none;color:var(--text);}
+.page-head .nav-pills .npill.active{background:var(--accent);color:#fff;}
+/* plano Básico: só os botões que o plano tem (classes postas no body pela view) */
+body.sem-bonus #navBonus,
+body.sem-gerador #navGenerator{display:none;}
+
+/* botão solto: abre o painel lateral da tela atual */
+#btnPainel{display:flex;position:fixed;z-index:300;right:14px;
+  bottom:calc(24px + env(safe-area-inset-bottom,0px));
+  width:64px;height:64px;border-radius:50%;border:none;padding:0;
+  align-items:center;justify-content:center;background:var(--accent);color:#fff;
+  box-shadow:0 0 0 4px var(--bg),0 8px 24px var(--shadow-lg);}
+#btnPainel svg{width:28px;height:28px;}
+#btnPainel:active{transform:scale(.95);}
+/* Favoritos é lista única: não tem painel para abrir */
+body:has(#favoritesPage.active) #btnPainel{display:none;}
+
+/* voltar ao topo não existe no celular */
+.scroll-top,#scrollTopBtn{display:none !important;}
+
+/* ══ §7 PAINÉIS LATERAIS ════════════════════════════════════════════
+   Não são modais novos: são as colunas laterais do computador, trazidas
+   por cima da tela. Ficam sempre montadas, fora da tela, e entram com
+   body.painel-aberto — cada uma só na tela dela. */
+#painelFundo{display:block;position:fixed;inset:0;z-index:399;background:rgba(12,16,22,.5);
+  opacity:0;pointer-events:none;transition:opacity .25s;}
+body.painel-aberto #painelFundo{opacity:1;pointer-events:auto;}
+
+.cat-column,.rank-column,.gen-rail{
+  display:flex;flex-direction:column;position:fixed;z-index:400;margin:0;
+  left:12px;top:calc(50px + env(safe-area-inset-top,0px));bottom:14px;width:min(300px,78vw);
+  background:var(--painel);border-radius:21px;box-shadow:0 20px 60px rgba(0,0,0,.35);
+  transform:translateX(-110%);transition:transform .32s cubic-bezier(.22,1,.36,1);
+  overflow:hidden;visibility:hidden;}
+body.painel-aberto:has(#homePage.active) .cat-column,
+body.painel-aberto:has(#communityPage.active) .rank-column,
+body.painel-aberto:has(#generatorPage.active) .gen-rail{transform:translateX(0);visibility:visible;}
+
+/* painel de categorias */
+.cat-column{padding:14px 12px 0;}
+/* Carrossel (roda) só no computador — no celular ele não funcionou bem, e o
+   script da view força o modo lista. Somem o botão dele e o "Auto", que
+   só serve para girar a roda sozinha. */
+#viewWheelBtn,
+.cat-toolbar .auto-switch{display:none !important;}
+.cat-toolbar{flex:0 0 auto;gap:6px;padding:0 2px 10px;border-bottom:1px solid var(--border);}
+.cat-toolbar .tbtn{width:42px;height:42px;padding:0;}
+.cat-toolbar .tbtn svg{width:22px;height:22px;}
+#btnNovaCategoria{align-self:center;width:auto;margin:14px auto 12px;height:48px;padding:0 26px;
+  font-size:16px;font-weight:700;border-radius:var(--r-pill);flex:0 0 auto;}
+body:has(#catPanel.somente-leitura) #btnNovaCategoria{display:none !important;}
+.cat-stage{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:4px 2px 16px;}
+.cat-card .cat-nome{font-size:19px;font-weight:800;}
+.cat-card .cat-qtd{font-size:15px;font-weight:700;}
+.cat-card .cat-editar{height:32px;padding:0 14px;font-size:14px;}
+
+/* ranking */
+.rank-column{padding:18px 16px 0;}
+.rank-head{flex:0 0 auto;text-align:center;padding-bottom:12px;border-bottom:1px solid var(--border);}
+.rank-head h2{font-size:38px;font-weight:400;line-height:1.1;}
+.rank-head p{font-size:20px;}
+.rank-list{flex:1 1 auto;min-height:0;overflow-y:auto;}
+.rank-item{min-height:74px;gap:12px;padding:10px 4px;}
+.rank-pos{width:26px;font-size:20px;font-weight:400;color:var(--text);}
+/* a moldura do avatar vem com 24px gravados pelo JS (authorBadge) */
+.rank-item .av-wrap,
+.rank-item .av,
+.rank-item .av-fallback{width:52px !important;height:52px !important;}
+.rank-item .av-fallback{font-size:18px !important;}
+.rank-item .av-crown{font-size:17px !important;top:-15px;}
+.rank-info strong{font-size:17px;font-weight:800;}
+.rank-info em{font-size:15px;color:var(--text);}
+.rank-likes{font-size:15px;white-space:nowrap;}
+
+/* blocos do gerador */
+.gen-rail{padding:14px 12px;gap:10px;overflow-y:auto;}
+.gen-rail .gen-mode{height:52px;min-height:52px;border-radius:var(--r-pill);background:var(--surface2);
+  font-size:17px;text-transform:none;letter-spacing:0;justify-content:center;position:relative;}
+.gen-rail .gen-mode.active{background:var(--accent);color:#fff;}
+/* emoji preso à esquerda, rótulo centralizado na pílula */
+.gen-rail .gen-mode > span{position:absolute;left:20px;top:50%;transform:translateY(-50%);font-size:20px;}
+.gen-rail .gen-clear{height:52px;min-height:52px;width:100%;justify-content:center;font-size:17px;
+  border-radius:var(--r-pill);margin-top:auto;flex:0 0 auto;}
+.gen-rail .gen-clear svg{width:20px;height:20px;}
+.gen-rail > div[style*="flex:1"]{display:none;}
+
+/* ══ §9 FAVORITOS · COMUNIDADE · BÔNUS ══════════════════════════════ */
+/* Favoritos: painel inteiriço, sem degrau */
+.tela-simples{padding:0;}
+.painel-cheio{flex:1 1 auto;min-height:0;position:relative;margin:16px 12px 12px;
+  background:var(--painel);border-radius:21px;overflow:hidden;}
+.painel-tools{position:absolute;left:18px;right:6px;top:8px;height:44px;margin:0;padding:0;
+  display:flex;align-items:center;gap:8px;z-index:3;}
+.painel-tools > div[style*="flex:1"]{display:none;}
+#favPageDesc{flex:1 1 auto;min-width:0;font-size:14px;color:var(--muted);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.painel-tools .tbtn{width:42px;height:42px;padding:0;border-radius:50%;flex:0 0 42px;}
+.painel-tools .tbtn svg{width:21px;height:21px;}
+.painel-tools.busca-aberta .notch-search{left:-8px;right:0;top:0;}
+.painel-cheio-corpo{position:absolute;left:0;right:0;top:56px;bottom:0;overflow-y:auto;overflow-x:hidden;
+  padding:10px 22px 120px 12px;}
+
+/* Bônus: só leitura — sem Novo card e sem subcategorias, mas COM lupa e ordenar.
+   O app.js esconde a barra inteira no modo bônus (style.display gravado no
+   elemento, em openProject) e o app.css some com o ordenar; o desenho pede os
+   dois de volta. */
+body:has(#catPanel.somente-leitura) #projActionsBar{display:flex !important;}
+.cat-panel.somente-leitura #sortCardBtn{display:inline-flex !important;}
+.cat-panel.somente-leitura .notch-new,
+.cat-panel.somente-leitura .subcat-drop{display:none !important;}
+.cat-panel.somente-leitura .notch-search{width:42px;}
+
+/* ══ §10 GERADOR ════════════════════════════════════════════════════
+   Coluna única e tudo rolando junto. Os blocos ficam na ordem do
+   formulário, depois Camadas extras, depois o Prompt Gerado — no HTML o
+   Prompt Gerado vem antes, então a ordem é invertida com "order". */
+#generatorPage.active{overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
+#generatorPage.active > main{flex:0 0 auto;}
+/* com #generatorPage na frente: a regra geral "body > .page.active > main"
+   zera o padding e é mais específica que .gen-layout-3 sozinha */
+#generatorPage .gen-layout-3{display:flex;flex-direction:column;align-items:stretch;gap:12px;
+  padding:14px 12px 120px;max-width:none;}
+/* menos o .gen-rail: ele também é filho deste layout, mas no celular vira
+   o painel lateral (§7) e tem largura própria */
+#generatorPage .gen-layout-3 > :not(.gen-rail){width:auto;max-width:none;min-width:0;}
+.gen-meio{overflow:visible;}
+.gen-direita{display:flex;flex-direction:column;gap:12px;position:static;overflow:visible;}
+.gen-direita > .gen-bloco-camadas{order:1;}
+.gen-direita > :not(.gen-bloco-camadas){order:2;}
+.gen-output-sticky{position:static !important;}
+/* o bloco do Prompt Gerado é o .gen-bloco que não é o de Camadas: destaque azul */
+.gen-direita > .gen-bloco:not(.gen-bloco-camadas){border:2px solid var(--accent);}
+/* Copiar e Salvar: alvos grandes, lado a lado, o Copiar na frente */
+.gen-actions{display:flex;gap:10px;}
+.gen-actions .hbtn{flex:1 1 0;height:52px;justify-content:center;font-size:16px;border-radius:var(--r-pill);}
+.gen-actions .hbtn svg{width:18px;height:18px;}
+.gen-lang-btn{min-width:44px;height:36px;}
+.gen-layout-3 input,.gen-layout-3 textarea,.gen-layout-3 select{font-size:16px;}
+.gen-layout-3 .gen-chip,.gen-layout-3 .gen-opt,.gen-layout-3 .chip{min-height:42px;}
+.gen-row2{grid-template-columns:1fr;}
+
+/* ══ §11 MODAIS: folha que sobe de baixo ════════════════════════════
+   Largura total, cantos de 26px em cima, rola por dentro. O X fica preso
+   no alto à direita, por cima da linha do título; o rodapé de botões fica
+   preso embaixo. */
+.overlay{align-items:flex-end;padding:0;}
+.overlay .modal{position:relative;display:block;width:100%;max-width:none;max-height:92dvh;
+  height:auto;margin:0;border-radius:26px 26px 0 0;border-bottom:none;
+  padding:0 16px calc(16px + env(safe-area-inset-bottom,0px));
+  overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;
+  animation:folha-sobe .28s cubic-bezier(.22,1,.36,1);}
+@keyframes folha-sobe{from{transform:translateY(40px);opacity:.6;}}
+
+/* X: no fluxo, preso ao topo enquanto a folha rola; a margem negativa
+   embaixo faz ele ocupar a mesma linha do título em vez de empurrá-lo */
+.overlay .modal-close{position:sticky;top:12px;z-index:7;display:flex;align-items:center;justify-content:center;
+  width:42px;height:42px;margin:12px -4px -54px auto;}
+.overlay .modal h2,
+.overlay .modal #cardModalTitle{position:sticky;top:0;z-index:5;background:var(--bg);
+  margin:0 -16px 8px !important;padding:22px 64px 12px 16px !important;
+  font-size:20px !important;line-height:1.25;}
+
+.overlay .modal-footer{position:sticky;bottom:calc(-16px - env(safe-area-inset-bottom,0px));z-index:5;
+  background:var(--bg);margin:16px -16px 0;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));
+  display:flex;flex-direction:row;gap:10px;border-top:1px solid var(--border);}
+.overlay .modal-footer > *{flex:1 1 0;height:52px;justify-content:center;font-size:16px;}
+.overlay input,.overlay textarea,.overlay select,.overlay .rich-editor{font-size:16px;}
+
+/* ── editar card ──
+   Título em cima, depois a foto pequena à esquerda com as abas e o botão
+   de enviar ao lado, depois os campos. O título mora dentro da coluna de
+   campos: display:contents solta ele (e os campos) na coluna principal,
+   e "order" põe o título primeiro. */
+.modal-card-edit{padding-top:0;}
+.card-edit-layout{display:flex;flex-direction:column;overflow:visible;gap:14px;}
+.card-edit-fields-col{display:contents;}
+.card-edit-fields-col > *{order:2;}
+#cardModalTitle{order:0;}
+.card-edit-img-col{order:1;width:100% !important;max-width:none !important;overflow:visible;padding:0;
+  display:grid;grid-template-columns:112px minmax(0,1fr);column-gap:12px;row-gap:8px;align-items:start;}
+.card-edit-img-col > *{grid-column:2;}
+.card-edit-img-col > .card-edit-thumb-wrap{grid-column:1;grid-row:1 / span 3;}
+.card-edit-thumb-prev{aspect-ratio:4/5 !important;width:112px;}
+.card-edit-pos-btns{gap:4px;}
+.card-img-tab{height:40px;font-size:14px;}
+.card-edit-img-col .upload-row .hbtn{height:44px;}
+.card-edit-fields-col > .modal-footer{order:3;}
+
+/* ── ver prompt: foto em cima, título, texto inteiro, rodapé ──
+   Aqui a folha não rola: quem rola é o miolo. Assim o X (que tem posição
+   gravada no elemento e mora dentro da coluna de texto) fica preso no alto
+   sobre a foto, e o rodapé Editar / Copiar fica sempre no pé. */
+#viewModal .modal-view{display:flex;flex-direction:column;overflow:hidden;padding:0;}
+#viewModal .view-layout{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  display:flex;flex-direction:column;padding:12px 16px 0;gap:0;}
+#viewModal .view-img-col{aspect-ratio:1.1;height:auto !important;width:100% !important;max-width:none !important;
+  flex:0 0 auto;border-radius:18px;}
+#viewModal .view-content-col{position:static;border-left:none;padding:14px 0 0;display:flex;flex-direction:column;
+  overflow:visible;flex:0 0 auto;}
+#viewModal .view-content-scroll{overflow:visible;max-height:none;}
+#viewModal .modal-close{position:absolute !important;top:20px !important;right:24px !important;margin:0;z-index:8;
+  background:rgba(0,0,0,.38);color:#fff;border:none;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);}
+#viewModal .view-title{font-size:22px;font-weight:800;}
+#viewModal .view-full{font-size:15px;line-height:1.5;}
+#viewModal .view-footer{position:sticky;bottom:0;z-index:5;background:var(--bg);
+  margin:14px -16px 0;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));
+  display:flex;gap:10px;border-top:1px solid var(--border);}
+#viewModal .view-footer .hbtn{flex:1 1 0;height:52px;justify-content:center;font-size:16px;}
+
+/* ajuda: a especificação pede para esconder os atalhos de teclado, mas o
+   modal atual já não tem nenhum — só Telegram, contatos, tutorial e Termos. */
+
+/* sino e menu do perfil: cartões flutuando abaixo do topo, não folhas */
+.notif-panel,.user-menu{position:fixed;left:12px;right:12px;width:auto;
+  top:calc(62px + env(safe-area-inset-top,0px));max-height:70dvh;overflow-y:auto;z-index:500;}
+
+/* foto ampliada: o X era branco sobre branco-transparente e sumia em foto
+   clara (no celular a foto ocupa a largura toda e o X fica em cima dela).
+   Círculo escuro com borda branca aparece sobre qualquer foto. */
+.img-lightbox-close{top:calc(14px + env(safe-area-inset-top,0px));right:14px;width:44px;height:44px;
+  background:rgba(0,0,0,.6);border:2px solid rgba(255,255,255,.9);color:#fff;font-size:18px;
+  box-shadow:0 2px 12px rgba(0,0,0,.45);z-index:100000;}
+.img-lightbox-close:hover,.img-lightbox-close:active{background:rgba(0,0,0,.75);}
+
+/* aviso flutuante acima da barra de baixo */
+.toast{left:50%;right:auto;bottom:calc(102px + env(safe-area-inset-bottom,0px));
+  transform:translateX(-50%);max-width:calc(100% - 32px);text-align:center;}
+.toast.show{transform:translateX(-50%);}
+
+/* ══ §12 ESTADOS ════════════════════════════════════════════════════ */
+.cat-panel-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:14px;padding:24px;border-radius:21px;background:var(--painel);text-align:center;}
+.empty-state{padding:48px 20px;}
+.empty-state p{font-size:15px;}
+.pc-thumb{background:var(--surface2);}         /* foto carregando: sem piscar branco */
+
+/* resultados da busca global ocupam o lugar do painel e rolam por dentro */
+#globalResultsSection{margin:14px 12px 12px;overflow-y:auto;min-height:0;flex:1 1 auto;
+  padding-bottom:120px;}
+
+/* ══ DICA "INSTALE O APP" ════════════════════════════════════════════
+   Cartão acima da barra de baixo. Só aparece pelo script do app.blade.php
+   (classe .mostrar): no navegador do celular, uma vez, até a pessoa fechar. */
+.dica-instalar.mostrar{display:flex;position:fixed;z-index:350;left:12px;right:12px;
+  bottom:calc(100px + env(safe-area-inset-bottom,0px));align-items:flex-start;gap:12px;
+  padding:14px 14px 14px 14px;border-radius:20px;background:var(--card);border:1px solid var(--border);
+  box-shadow:0 10px 32px var(--shadow-lg);animation:dicaEntra .25s ease-out;}
+@keyframes dicaEntra{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:none;}}
+.dica-instalar img{width:48px;height:48px;border-radius:12px;flex-shrink:0;}
+.dica-instalar .dica-texto{flex:1 1 auto;min-width:0;padding-top:2px;}
+.dica-instalar strong{display:block;font-size:16px;font-weight:700;margin-bottom:4px;}
+.dica-instalar p{font-size:14px;line-height:1.4;color:var(--muted);}
+.dica-instalar .dica-botao{display:none;margin-top:10px;height:40px;padding:0 20px;border-radius:var(--r-pill);
+  border:0;background:var(--accent);color:#fff;font-size:15px;font-weight:600;}
+.dica-instalar.com-botao .dica-botao{display:inline-flex;align-items:center;}
+.dica-instalar .dica-fechar{flex-shrink:0;width:32px;height:32px;margin:-4px -4px 0 0;border-radius:50%;border:0;
+  background:var(--surface2);color:var(--muted);display:flex;align-items:center;justify-content:center;padding:0;}
+
+} /* fim do @media (max-width:700px) */
