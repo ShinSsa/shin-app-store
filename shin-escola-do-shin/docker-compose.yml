@@ -1,0 +1,23 @@
+version: "3.7"
+
+services:
+  app_proxy:
+    environment:
+      # <app-id>_<serviço>_1
+      APP_HOST: shin-escola-do-shin_web_1
+      APP_PORT: 8792
+
+  web:
+    image: ghcr.io/shinssa/escola-do-shin:1.0.0
+    user: "1000:1000"
+    init: true
+    restart: on-failure
+    environment:
+      PORT: 8792
+      CURSOS: /cursos,/cursos2,/cursos3
+      DADOS: /dados
+      TZ: America/Bahia
+    volumes:
+      # Troque estas duas pastas em "Acesso às suas pastas" (veja o README)
+      - ${APP_DATA_DIR}/data/cursos:/cursos
+      - ${APP_DATA_DIR}/data/dados:/dados

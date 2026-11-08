@@ -1,0 +1,34 @@
+manifestVersion: 1
+id: shin-escola-do-shin
+name: Escola do Shin
+tagline: Sua biblioteca de cursos em vídeo e PDF, com progresso e anotações
+icon: https://raw.githubusercontent.com/ShinSsa/shin-app-store/master/assets/escola-do-shin.png
+category: media
+version: "1.0.0"
+port: 8792
+description: >-
+  Lê a sua pasta de cursos e monta uma biblioteca no estilo Domestika:
+  escolas, cursos, módulos e aulas em vídeo ou PDF, com materiais extras
+  (PDF, imagens, arquivos) e links lidos de links.txt e dos PDFs.
+
+
+  Guarda o progresso de cada aula, retoma de onde parou, tem anotações com o
+  minuto do vídeo, estrelas, favoritos, categorias, tags, Top 10 e modo claro
+  e escuro. Funciona no Mac, no iPhone e em qualquer aparelho da rede.
+
+
+  Depois de instalar, abra as configurações do app em "Acesso às suas
+  pastas" e aponte /cursos para a sua pasta de cursos (somente leitura).
+developer: Ramon (ShinSsa)
+website: https://github.com/ShinSsa/shin-app-store
+submitter: ShinSsa
+submission: https://github.com/ShinSsa/shin-app-store
+repo: https://github.com/ShinSsa/shin-app-store
+support: https://github.com/ShinSsa/shin-app-store/issues
+gallery: []
+releaseNotes: >-
+  Primeira versão na Loja do Shin.
+dependencies: []
+path: ""
+defaultUsername: ""
+defaultPassword: ""

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Escola do Shin</title>
+<meta name="theme-color" content="#F3F5F8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#13161C" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Escola do Shin">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icone.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icone-180.png">
+<link rel="stylesheet" href="estilo.css">
+<script>
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem('tema'); } catch (e) {}
+    if (!t) t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'escuro' : 'claro';
+    document.documentElement.setAttribute('data-tema', t);
+  })();
+</script>
+</head>
+<body>
+<div class="app">
+  <nav class="menu" id="menu" aria-label="Menu principal"></nav>
+  <main class="conteudo" id="conteudo" tabindex="-1"></main>
+</div>
+<nav class="barra-celular" id="barra-celular" aria-label="Menu"></nav>
+<div id="modal-raiz"></div>
+<div id="aviso" class="aviso" role="status" aria-live="polite"></div>
+<script src="app.js"></script>
+</body>
+</html>
