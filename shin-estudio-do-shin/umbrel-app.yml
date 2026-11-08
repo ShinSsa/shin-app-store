@@ -4,7 +4,7 @@ name: Estúdio do Shin
 tagline: Estúdio de imagens e vídeos com IA, com canvas de nós
 icon: https://raw.githubusercontent.com/ShinSsa/shin-app-store/master/assets/estudio-do-shin.png
 category: ai
-version: "1.0.3"
+version: "1.0.4"
 port: 8787
 description: >-
   Estúdio pessoal de geração de imagens e vídeos com IA: galeria, projetos,
@@ -23,7 +23,7 @@ repo: https://github.com/ShinSsa/shin-app-store
 support: https://github.com/ShinSsa/shin-app-store/issues
 gallery: []
 releaseNotes: >-
-  As imagens passam a ser salvas na pasta Home do app Arquivos do Umbrel (Estúdio do Shin), como no Mac. O backup agora leva também a timeline.
+  Quem já tinha o app passa a salvar na pasta Home → Estúdio do Shin, e as imagens antigas são movidas para lá automaticamente.
 dependencies: []
 path: ""
 defaultUsername: ""

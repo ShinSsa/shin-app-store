@@ -8667,6 +8667,9 @@ function diskSave(it) {
 async function diskSync(silent = false) {
   if (DISK.busy) return;
   await diskCheck(); if (!DISK.ok) { if (!silent) toast(DISK.error || 'Pasta indisponível.'); return; }
+  // arquivos que ficaram na pasta interna antiga do Umbrel → move para a pasta atual
+  const legacy = state.items.filter(i => i.disk?.root === '/data/imagens' && DISK.root && DISK.root !== '/data/imagens' && !proj(i.projectId)?.diskRoot);
+  if (legacy.length) { DISK.busy = true; toast(`Movendo ${legacy.length} arquivo(s) para ${DISK.root.split('/').pop()}…`); for (const it of legacy) await diskMove(it); DISK.busy = false; }
   const list = pendingDisk().sort((a, b) => a.createdAt - b.createdAt); if (!list.length) { if (!silent) toast('Tudo já está salvo no disco.'); return; }
   DISK.busy = true; diskWarned = false; let ok = 0;
   if (!silent || list.length > 3) toast(`Salvando ${list.length} imagem(ns) no disco…`);

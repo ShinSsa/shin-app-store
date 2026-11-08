@@ -77,6 +77,8 @@ const CONF_FILE = path.join(DATA, 'config.json');
 let conf = { root: process.env.SHIN_ROOT || (IN_DOCKER ? path.join(DATA, 'imagens') : path.join(os.homedir(), 'Pictures', 'Estúdio do Shin')) };
 try { conf = { ...conf, ...JSON.parse(await readFile(CONF_FILE, 'utf8')) }; } catch {}
 const saveConf = () => writeFile(CONF_FILE, JSON.stringify(conf, null, 2)).catch(() => {});
+// 1.0.4: quem já tinha a pasta interna salva passa a usar a Home do Umbrel (uma vez só)
+if (IN_DOCKER && process.env.SHIN_ROOT && !conf.rootMigrated && conf.root === path.join(DATA, 'imagens')) { conf.root = process.env.SHIN_ROOT; conf.rootMigrated = true; await saveConf(); }
 // nomes de pasta/arquivo seguros (sem barras, sem começar com ponto)
 const clean = s => String(s || '').normalize('NFC').replace(/[\/\\:*?"<>|\x00-\x1f]/g, '-').replace(/^[.\s]+/, '').replace(/\s+$/, '').slice(0, 80) || 'sem-nome';
 const cleanRel = rel => String(rel || '').split(/[\/\\]+/).filter(Boolean).map(clean).join('/');
