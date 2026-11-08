@@ -1,0 +1,30 @@
+manifestVersion: 1
+id: shin-estudio-do-shin
+name: Estúdio do Shin
+tagline: Estúdio de imagens e vídeos com IA, com canvas de nós
+icon: https://raw.githubusercontent.com/ShinSsa/shin-app-store/master/assets/estudio-do-shin.png
+category: ai
+version: "1.0.0"
+port: 8787
+description: >-
+  Estúdio pessoal de geração de imagens e vídeos com IA: galeria, projetos,
+  elementos com @, editor com máscara, canvas de nós no estilo Magnific,
+  timeline de cenas de vídeo e ponte MCP para o Claude.
+
+
+  Usa Google Gemini (Nano Banana) e Veo pelo seu crédito do Google Cloud,
+  Pollinations (grátis), Runware e outras APIs compatíveis com a OpenAI.
+  As imagens ficam salvas no armazenamento do Umbrel.
+developer: Ramon (ShinSsa)
+website: https://github.com/ShinSsa/shin-app-store
+submitter: ShinSsa
+submission: https://github.com/ShinSsa/shin-app-store
+repo: https://github.com/ShinSsa/shin-app-store
+support: https://github.com/ShinSsa/shin-app-store/issues
+gallery: []
+releaseNotes: >-
+  Primeira versão no Umbrel.
+dependencies: []
+path: ""
+defaultUsername: ""
+defaultPassword: ""
