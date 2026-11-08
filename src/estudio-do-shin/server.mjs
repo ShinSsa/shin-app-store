@@ -171,7 +171,13 @@ async function disk(u, req, res) {
 const okOrigin = req => {
   const o = req.headers.origin; if (!o) return true;
   if (o === `http://localhost:${PORT}` || o === `http://127.0.0.1:${PORT}`) return true;
-  try { return new URL(o).host === req.headers.host; } catch { return false; }   // a própria página, aberta por qualquer endereço (Umbrel, Tailscale)
+  let u; try { u = new URL(o); } catch { return false; }
+  // a própria página, aberta por qualquer endereço (o proxy do Umbrel pode trocar o Host)
+  const hosts = [req.headers.host, req.headers['x-forwarded-host']].filter(Boolean).flatMap(h => String(h).split(',').map(x => x.trim()));
+  if (hosts.includes(u.host)) return true;
+  // rede de casa, Tailscale e nomes locais (sites da internet continuam bloqueados)
+  const h = u.hostname;
+  return /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)/.test(h) || /\.(local|lan|home|ts\.net)$/.test(h) || !h.includes('.');
 };
 
 
