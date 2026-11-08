@@ -133,8 +133,12 @@ main{margin-left:var(--sbw);padding:0 16px calc(300px + env(safe-area-inset-bott
 .card.pend{cursor:default;display:flex;flex-direction:column;justify-content:flex-end;padding:12px;
   background:linear-gradient(110deg,var(--bg2) 30%,var(--bg3) 50%,var(--bg2) 70%);background-size:220% 100%;animation:shim 1.6s linear infinite}
 @keyframes shim{to{background-position:-220% 0}}
-.pend .st{font-size:12px;color:var(--ac);font-weight:600;display:flex;align-items:center;gap:6px}
-.pend .st::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ac);animation:blink 1s infinite}
+.pend .pc{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:4px;padding:6px 10px;min-height:0}
+.pend .pico{width:22px;height:22px;color:var(--tx2);display:grid;place-items:center;margin-bottom:4px}.pend .pico svg{width:20px;height:20px}
+.pend .pico .spin{width:18px;height:18px;border-radius:50%;border:2px solid var(--line2);border-top-color:var(--ac);animation:pspin .8s linear infinite;display:block}
+@keyframes pspin{to{transform:rotate(360deg)}}
+.pend .pc b{font-size:14px;color:var(--tx)}.pend .psub{font-size:12px;color:var(--tx2);font-variant-numeric:tabular-nums}
+.pend .pnote{font-size:11px;color:var(--tx3);max-width:300px;line-height:1.35;margin-top:2px}
 @keyframes blink{50%{opacity:.25}}
 .pend .pp{font-size:12px;color:var(--tx3);margin-top:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .card.err{cursor:default;animation:none;background:var(--errBg);border-color:var(--errLn);display:flex;flex-direction:column;padding:12px;gap:8px}
@@ -5642,15 +5646,25 @@ $('#ftabs').onclick = e => {
 };
 function jobCard(j) {
   if (j.status === 'error') return `<div class="card err" data-jid="${j.jid}"><div class="em"><b>Falhou.</b> ${esc(j.error)}</div><div class="ea"><button data-a="retry">Tentar de novo</button><button data-a="dismiss">Fechar</button></div></div>`;
-  return `<div class="card pend" data-jid="${j.jid}" style="aspect-ratio:${j.w}/${j.h}">${j.kind === 'video' ? `<span class="vbadge">${ICON_PLAYF}vídeo</span>` : ''}<div class="st" data-st>${jobStatusText(j)}</div><div class="pp">${esc(j.prompt)}</div></div>`;
+  return `<div class="card pend" data-jid="${j.jid}" style="aspect-ratio:${j.w}/${j.h}">${j.kind === 'video' ? `<span class="vbadge">${ICON_PLAYF}vídeo</span>` : ''}<div class="pc" data-st>${jobStatusHTML(j)}</div><div class="pp">${esc(j.prompt)}</div></div>`;
 }
-function jobStatusText(j) {
-  if (j.status === 'prep') return j.ai ? 'Melhorando prompt…' : 'Preparando…';
-  if (j.waitUntil && j.waitUntil > Date.now()) return `Na fila · ${Math.ceil((j.waitUntil - Date.now())/1000)}s`;
-  if (j.status === 'queued') return 'Na fila';
-  return `Gerando · ${Math.floor((Date.now() - j.t0)/1000)}s`;
+const ICON_HOURGLASS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9"/></svg>';
+function jobStatusHTML(j) {
+  const secs = Math.max(0, Math.floor((Date.now() - j.t0) / 1000));
+  const lbl = j.kind === 'video' ? (veoModel(j.model)?.label || j.model) : modelLabel(j.provider, j.model);
+  const waiting = j.status === 'queued' || (j.waitUntil && j.waitUntil > Date.now());
+  let ico, title, note = '';
+  if (j.status === 'prep') { ico = '<i class="spin"></i>'; title = j.ai ? 'Melhorando prompt…' : 'Preparando…'; }
+  else if (waiting) {
+    const q = state.jobs.filter(x => x.provider === j.provider && x.status !== 'error' && (x.status === 'queued' || (x.waitUntil && x.waitUntil > Date.now())));
+    const pos = q.indexOf(j) + 1;
+    ico = ICON_HOURGLASS; title = 'Na fila' + (pos > 0 ? ` · ${pos}º` : '');
+    note = j.waitUntil && j.waitUntil > Date.now() ? `O servidor pediu uma pausa. Tenta de novo em ${Math.ceil((j.waitUntil - Date.now()) / 1000)} s.` : 'A sua vez está garantida e a geração já vai sair.';
+  } else { ico = '<i class="spin"></i>'; title = 'Gerando'; }
+  return `<span class="pico">${ico}</span><b>${title}</b><span class="psub">${esc(lbl || '')} · ${secs} s</span>${note ? `<span class="pnote">${note}</span>` : ''}`;
 }
-function renderJobsTick() { state.jobs.forEach(j => { const el = document.querySelector(`[data-jid="${j.jid}"] [data-st]`); if (el) el.textContent = jobStatusText(j); }); if (typeof CV !== 'undefined' && CV.active()) CV.tick(); if (typeof ED !== 'undefined' && ED.open && ED.s && state.jobs.some(j => j.editSession === ED.s.session)) edResults(); }
+const jobStatusText = j => { const d = document.createElement('div'); d.innerHTML = jobStatusHTML(j); return [...d.querySelectorAll('b,.psub')].map(x => x.textContent).join(' · '); };
+function renderJobsTick() { state.jobs.forEach(j => { const el = document.querySelector(`[data-jid="${j.jid}"] [data-st]`); if (el) el.innerHTML = jobStatusHTML(j); }); if (typeof CV !== 'undefined' && CV.active()) CV.tick(); if (typeof ED !== 'undefined' && ED.open && ED.s && state.jobs.some(j => j.editSession === ED.s.session)) edResults(); }
 /* galeria em colunas: cada imagem entra na coluna mais baixa, sem buracos (estilo Leonardo/Pinterest) */
 let gridCards = [];
 const gridCols = () => innerWidth >= 1650 ? 5 : innerWidth >= 1250 ? 4 : innerWidth >= 700 ? 3 : 2;
