@@ -4,7 +4,7 @@ name: Estúdio do Shin
 tagline: Estúdio de imagens e vídeos com IA, com canvas de nós
 icon: https://raw.githubusercontent.com/ShinSsa/shin-app-store/master/assets/estudio-do-shin.png
 category: ai
-version: "1.0.8"
+version: "1.0.9"
 port: 8787
 description: >-
   Estúdio pessoal de geração de imagens e vídeos com IA: galeria, projetos,
@@ -23,7 +23,7 @@ repo: https://github.com/ShinSsa/shin-app-store
 support: https://github.com/ShinSsa/shin-app-store/issues
 gallery: []
 releaseNotes: >-
-  Botões ao passar o mouse na galeria, referências maiores na imagem aberta e barra de geração mais larga.
+  Esconde os botões do Finder no Umbrel e mostra onde a imagem está no app Arquivos.
 dependencies: []
 path: ""
 defaultUsername: ""

@@ -6312,7 +6312,7 @@ function renderLightbox() {
           <dt>Custo</dt><dd>${it.provider === 'pollinations' ? 'Grátis' : (typeof it.cost === 'number' ? `${it.provider === 'gemini' || it.provider === 'veo' ? '≈ ' : ''}${usd(it.cost)} · ${brl(it.cost * cfg.usdBrl)}` : '—')}</dd>
           <dt>Criado</dt><dd>${new Date(it.createdAt).toLocaleString('pt-BR', { dateStyle: 'medium', timeStyle: 'short' })}</dd>
           ${!it.blob ? '<dt>Arquivo</dt><dd style="color:var(--gold)">só link remoto</dd>' : ''}
-          ${it.disk ? `<dt>No disco</dt><dd style="word-break:break-all">${esc(it.disk.rel)} <button class="lnk" data-a="reveal">Mostrar no Finder</button></dd>` : (cfg.diskSave !== false ? '<dt>No disco</dt><dd style="color:var(--tx3)">ainda não salvo</dd>' : '')}
+          ${it.disk ? `<dt>No disco</dt><dd style="word-break:break-all">${/^\/umbrel\//.test(it.disk.root) ? `<span style="color:var(--tx3)">Arquivos do Umbrel → Home/${esc(it.disk.root.slice(8))}/</span>` : ''}${esc(it.disk.rel)}${/^\/(Users|Volumes)\//.test(it.disk.root) ? ` <button class="lnk" data-a="reveal">Mostrar no Finder</button>` : ''}</dd>` : (cfg.diskSave !== false ? '<dt>No disco</dt><dd style="color:var(--tx3)">ainda não salvo</dd>' : '')}
         </dl>
       </div>
       <div class="acts">${isVid(it) ? `
@@ -6653,7 +6653,7 @@ function openSettings(tab) {
           <label class="row2" style="margin-bottom:8px;gap:8px"><input type="checkbox" id="sDisk" ${cfg.diskSave !== false ? 'checked' : ''}> <span style="font-size:13px">Salvar as imagens no disco</span></label>
           <div class="row2" style="margin-bottom:8px"><input class="inp" id="sRoot" placeholder="/Users/voce/Pictures/Estúdio do Shin" value="${esc(DISK.root)}"><button class="btn" data-a="diskUse">Usar</button><button class="btn" data-a="diskPick">Escolher…</button></div>
           <div class="small" id="sDiskSt">${viaHttp() ? (DISK.ok ? `✅ Pasta pronta${DISK.freeGB != null ? ` · ${DISK.freeGB.toLocaleString('pt-BR')} GB livres` : ''}` : '⚠️ ' + esc(DISK.error || 'verificando…')) : '⚠️ Abra o app por http://localhost:8787 para salvar no disco.'}</div>
-          <div class="row2" style="margin-top:8px"><button class="btn" data-a="diskOpen">Abrir no Finder</button><button class="btn" data-a="diskSync">Salvar as que faltam (${pendingDisk().length})</button></div>
+          <div class="row2" style="margin-top:8px">${macPath(DISK.root) ? '<button class="btn" data-a="diskOpen">Abrir no Finder</button>' : ''}<button class="btn" data-a="diskSync">Salvar as que faltam (${pendingDisk().length})</button></div>
         </div>
         </section>
         <section class="setpane ${setTab === 'templates' ? 'on' : ''}" data-pane="templates"><h2>Templates</h2>
@@ -8643,6 +8643,7 @@ document.addEventListener('keyup', e => { if (e.code === 'Space' && ED.open) { e
    raiz/Projeto/Pasta/arquivo.png  ·  "Sem projeto" para os soltos
    Um projeto pode ter a própria pasta (ex.: HD externo)
    ========================================================= */
+const macPath = r => /^\/(Users|Volumes)\//.test(r || '');
 const DISK = { ok: false, root: '', error: '', freeGB: null, checked: false, busy: false };
 const viaHttp = () => location.protocol.startsWith('http');
 const diskOn = () => cfg.diskSave !== false && viaHttp();
@@ -8755,7 +8756,7 @@ function diskMenu(anchor) {
   const n = pendingDisk().length;
   openPop(anchor, `<h6>Pasta das imagens</h6>
     <div class="hint" style="word-break:break-all">${DISK.ok ? esc(DISK.root) : esc(DISK.error || 'Indisponível')}</div>
-    ${DISK.ok ? `<button class="opt" data-d="open">${sm(I.folder)} Abrir no Finder</button>` : `<button class="opt" data-d="retry">${sm(I.redo)} Tentar de novo</button>`}
+    ${DISK.ok ? (macPath(DISK.root) ? `<button class="opt" data-d="open">${sm(I.folder)} Abrir no Finder</button>` : '') : `<button class="opt" data-d="retry">${sm(I.redo)} Tentar de novo</button>`}
     ${n ? `<button class="opt" data-d="sync">${sm(I.down)} Salvar ${n} imagem(ns) que faltam</button>` : ''}
     <button class="opt" data-d="repair">${sm(I.redo)} Recuperar imagens quebradas</button>
     <button class="opt" data-d="pick">${sm(I.pen)} Trocar pasta…</button>
@@ -9190,7 +9191,7 @@ const VID = (() => {
         <button data-v="redo">${sm(I.redo)} Refazer</button>
         <button data-v="left" ${i === 0 ? 'disabled' : ''}>← Mover</button><button data-v="right" ${i === ordered().length - 1 ? 'disabled' : ''}>Mover →</button>
         ${it ? `<button data-v="lastToGal">${sm(I.img)} Último quadro → galeria</button><button data-v="down">${sm(I.down)} Baixar</button>` : ''}
-        ${it?.disk ? `<button data-v="reveal">${sm(I.folder)} Finder</button>` : ''}
+        ${it?.disk && macPath(it.disk.root) ? `<button data-v="reveal">${sm(I.folder)} Finder</button>` : ''}
         <button class="danger" data-v="del">${sm(I.x)} Tirar da timeline</button>
       </div>`;
   }
