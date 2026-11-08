@@ -13,6 +13,7 @@ App Store → menu ⋯ (canto superior) → **Community App Stores** → cole
 | Ramotion | `shin-ramotion` | `ghcr.io/shinssa/ramotion` |
 | Escola do Shin | `shin-escola-do-shin` | `ghcr.io/shinssa/escola-do-shin` |
 | Feira | `shin-feira-do-shin` | `ghcr.io/shinssa/feira-do-shin` |
+| FinanceQuest | `shin-financequest` | `ghcr.io/shinssa/financequest` |
 
 ## Atualizar um app
 1. Troque os arquivos em `src/<app>/` e aumente o número em `src/<app>/VERSION`.
