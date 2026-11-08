@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<title>Feira do Shin</title>
+<title>Feira</title>
 <style>
 :root{
   --bg:#0a0a0c;
@@ -398,7 +398,7 @@ table.rep td.num{text-align:right;white-space:nowrap}
 <header class="app">
   <div class="row between" style="align-items:center">
     <div>
-      <h1><span class="mark">●</span> Feira do Shin</h1>
+      <h1><span class="mark">●</span> Feira</h1>
       <div class="sub">lista, preços e histórico do seu bairro</div>
     </div>
     <button type="button" class="calc-btn" onclick="openCalc()" aria-label="Comparar embalagens">
@@ -2988,7 +2988,7 @@ window.exportData = async (opts={}) => {
   const file = new File([blob], BACKUP_NAME, {type:'application/json'});
   if(navigator.canShare && navigator.canShare({files:[file]})){
     try{
-      await navigator.share({files:[file], title:'Backup Feira do Shin'});
+      await navigator.share({files:[file], title:'Backup Feira'});
       await markBackup();
       toast('Backup enviado');
       rerenderIfHistory();
@@ -3059,7 +3059,7 @@ window.importData = () => {
     if(!file) return;
     try{
       const data = JSON.parse(await file.text());
-      if(!Array.isArray(data.products)) throw new Error('arquivo não é um backup da Feira do Shin');
+      if(!Array.isArray(data.products)) throw new Error('arquivo não é um backup do app Feira');
       if(!confirm(`Importar ${data.products.length} produtos, ${data.places?.length||0} locais, ${data.prices?.length||0} preços e ${data.lists?.length||0} listas? Os dados atuais serão SUBSTITUÍDOS.`)) return;
       const clean = (data.version||1) < SCHEMA ? migrateData(data) : data;
       await replaceAll(clean);
@@ -3233,7 +3233,7 @@ function setupServerSync(){
   setInterval(()=>{ if(document.visibilityState==='visible' && !sheetBack.classList.contains('open')) pullServer(); }, 30000);
 }
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.0.1';
 /* ===================== INIT ===================== */
 (async () => {
   try{

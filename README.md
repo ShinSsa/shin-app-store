@@ -12,7 +12,7 @@ App Store → menu ⋯ (canto superior) → **Community App Stores** → cole
 | Estúdio do Shin | `shin-estudio-do-shin` | `ghcr.io/shinssa/estudio-do-shin` |
 | Ramotion | `shin-ramotion` | `ghcr.io/shinssa/ramotion` |
 | Escola do Shin | `shin-escola-do-shin` | `ghcr.io/shinssa/escola-do-shin` |
-| Feira do Shin | `shin-feira-do-shin` | `ghcr.io/shinssa/feira-do-shin` |
+| Feira | `shin-feira-do-shin` | `ghcr.io/shinssa/feira-do-shin` |
 
 ## Atualizar um app
 1. Troque os arquivos em `src/<app>/` e aumente o número em `src/<app>/VERSION`.

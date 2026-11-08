@@ -1,6 +1,6 @@
-# Monta a imagem Docker da Feira do Shin sempre que algo em src/feira-do-shin muda.
+# Monta a imagem Docker do app Feira sempre que algo em src/feira-do-shin muda.
 # A versão vem do arquivo src/feira-do-shin/VERSION.
-name: Feira do Shin (imagem Docker)
+name: Feira (imagem Docker)
 on:
   push:
     branches: [master, main]

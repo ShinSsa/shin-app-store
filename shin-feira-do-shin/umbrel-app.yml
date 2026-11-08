@@ -1,10 +1,10 @@
 manifestVersion: 1
 id: shin-feira-do-shin
-name: Feira do Shin
+name: Feira
 tagline: Lista de compras com preços por mercado e conferência do cupom
 icon: https://raw.githubusercontent.com/ShinSsa/shin-app-store/master/assets/feira-do-shin.png
 category: finance
-version: "1.0.0"
+version: "1.0.1"
 port: 8794
 description: >-
   Lista de compras para orçar e comparar preços entre mercados, feiras e
@@ -25,7 +25,7 @@ repo: https://github.com/ShinSsa/shin-app-store
 support: https://github.com/ShinSsa/shin-app-store/issues
 gallery: []
 releaseNotes: >-
-  Primeira versão no Umbrel, com os dados sincronizados entre aparelhos.
+  Novo nome (Feira) e ícone definitivo.
 dependencies: []
 path: ""
 defaultUsername: ""
