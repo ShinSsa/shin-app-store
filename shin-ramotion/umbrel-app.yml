@@ -1,0 +1,30 @@
+manifestVersion: 1
+id: shin-ramotion
+name: Ramotion
+tagline: Orçamentos, contratos e custos de motion design 2D, 3D e IA
+icon: https://raw.githubusercontent.com/ShinSsa/shin-app-store/master/assets/ramotion.png
+category: finance
+version: "1.0.0"
+port: 8790
+description: >-
+  Calculadora de estúdio para motion design: custos fixos, softwares,
+  serviços e preços de IA, orçamentos com multiplicadores de complexidade,
+  clientes, contratos com assinatura remota e relatórios.
+
+
+  Os dados ficam salvos no Umbrel e aparecem iguais no Mac, no iPhone e em
+  qualquer aparelho da rede. O Umbrel guarda uma cópia de segurança por dia
+  (últimos 30 dias).
+developer: Ramon (ShinSsa)
+website: https://github.com/ShinSsa/shin-app-store
+submitter: ShinSsa
+submission: https://github.com/ShinSsa/shin-app-store
+repo: https://github.com/ShinSsa/shin-app-store
+support: https://github.com/ShinSsa/shin-app-store/issues
+gallery: []
+releaseNotes: >-
+  Primeira versão no Umbrel.
+dependencies: []
+path: ""
+defaultUsername: ""
+defaultPassword: ""

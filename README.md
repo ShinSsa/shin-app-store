@@ -10,6 +10,7 @@ App Store → menu ⋯ (canto superior) → **Community App Stores** → cole
 | App | Pasta | Imagem Docker |
 |---|---|---|
 | Estúdio do Shin | `shin-estudio-do-shin` | `ghcr.io/shinssa/estudio-do-shin` |
+| Ramotion | `shin-ramotion` | `ghcr.io/shinssa/ramotion` |
 
 ## Atualizar um app
 1. Troque os arquivos em `src/<app>/` e aumente o número em `src/<app>/VERSION`.
