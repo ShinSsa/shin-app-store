@@ -4,7 +4,7 @@ name: Estúdio do Shin
 tagline: Estúdio de imagens e vídeos com IA, com canvas de nós
 icon: https://raw.githubusercontent.com/ShinSsa/shin-app-store/master/assets/estudio-do-shin.png
 category: ai
-version: "1.0.1"
+version: "1.0.2"
 port: 8787
 description: >-
   Estúdio pessoal de geração de imagens e vídeos com IA: galeria, projetos,
@@ -23,7 +23,7 @@ repo: https://github.com/ShinSsa/shin-app-store
 support: https://github.com/ShinSsa/shin-app-store/issues
 gallery: []
 releaseNotes: >-
-  Corrige o envio da credencial do Google e do ID do projeto pelo endereço do Umbrel.
+  A galeria, os projetos, os elementos, o canvas, a timeline e os ajustes agora ficam guardados no Umbrel: abra em qualquer aparelho e está tudo lá. Modelos do ModelScope saem do menu.
 dependencies: []
 path: ""
 defaultUsername: ""

@@ -4816,11 +4816,17 @@ const DB = (() => {
     else if (r && r.blob instanceof Blob) r._old = true;   // formato antigo: será convertido
     return r;
   }
+  const putLocal = async (st, v) => { const rec = await pack(v); return tx(st, 'readwrite', s => s.put(rec)); };
+  const delLocal = (st, id) => tx(st, 'readwrite', s => s.delete(id));
+  const sync = (st, id, v) => { if (typeof SYNC !== 'undefined') SYNC.push(st, id, v); };
   return {
     all: async st => (await tx(st, 'readonly', s => s.getAll())).map(unpack),
-    put: async (st, v) => { const rec = await pack(v); return tx(st, 'readwrite', s => s.put(rec)); },
-    del: (st, id) => tx(st, 'readwrite', s => s.delete(id)),
-    clear: st => tx(st, 'readwrite', s => s.clear())
+    get: async (st, id) => { const r = await tx(st, 'readonly', s => s.get(id)); return r ? unpack(r) : null; },
+    keys: st => tx(st, 'readonly', s => s.getAllKeys()),
+    put: async (st, v) => { const r = await putLocal(st, v); sync(st, v.id, v); return r; },
+    del: async (st, id) => { const r = await delLocal(st, id); sync(st, id, null); return r; },
+    clear: async st => { const ks = await tx(st, 'readonly', s => s.getAllKeys()); const r = await tx(st, 'readwrite', s => s.clear()); ks.forEach(k => sync(st, k, null)); return r; },
+    putLocal, delLocal
   };
 })();
 
@@ -4885,7 +4891,9 @@ let cfg = (() => { try { return { ...DEFAULT_CFG, ...JSON.parse(localStorage.get
   if (!cfg.runwareInpaint?.length) cfg.runwareInpaint = DEFAULT_CFG.runwareInpaint;
 })();
 cfg.sel = { ...DEFAULT_CFG.sel, ...(cfg.sel || {}) };
-const saveCfg = () => { try { localStorage.setItem(LS_KEY, JSON.stringify(cfg)); } catch {} };
+if (cfg.sel.provider === 'modelscope' && !cfg.msOn) cfg.sel = { ...cfg.sel, provider: 'pollinations', model: 'flux' };
+const saveCfgLocal = () => { try { localStorage.setItem(LS_KEY, JSON.stringify(cfg)); } catch {} };
+const saveCfg = () => { saveCfgLocal(); if (typeof SYNC !== 'undefined') SYNC.cfgChanged(); };
 
 /* ---------- tema ---------- */
 const mqLight = matchMedia('(prefers-color-scheme: light)');
@@ -4952,6 +4960,93 @@ async function shrinkBlob(blob, max = 1024) {
 }
 const blobToDataURL = b => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(b); });
 const dataURLToBlob = async d => (await fetch(d)).blob();
+
+/* ---------- galeria guardada no servidor (Umbrel) ----------
+   Quando o servidor tem o armazenamento ligado, cada gravação no banco do navegador também vai para o servidor,
+   e ao abrir o app ele baixa o que mudou em outros aparelhos. Sem servidor (arquivo aberto direto), nada muda. */
+const SYNC = (() => {
+  const LSM = 'estudio-do-shin:sync', LSD = 'estudio-do-shin:dirty';
+  const LOCAL_CFG = ['serverUrl', 'mode', 'view', 'ctab', 'galFilter', 'mpTab', 'cvPage', '_t'];
+  let on = false, meta = {}, dirty = {};
+  try { meta = JSON.parse(localStorage.getItem(LSM) || '{}'); dirty = JSON.parse(localStorage.getItem(LSD) || '{}'); } catch {}
+  const saveMeta = () => { try { localStorage.setItem(LSM, JSON.stringify(meta)); localStorage.setItem(LSD, JSON.stringify(dirty)); } catch {} };
+  const base = () => location.origin;
+  const cfgOut = () => { const o = { ...cfg }; LOCAL_CFG.forEach(k => delete o[k]); return { id: 'cfg', data: o }; };
+  async function enc(v) { const { blob, _old, ...o } = v; if (blob instanceof Blob) o._blob = await blobToDataURL(blob); return JSON.stringify(o); }
+  async function dec(txt) { const o = JSON.parse(txt); if (o._blob) { o.blob = await dataURLToBlob(o._blob); delete o._blob; } return o; }
+  const pend = new Map(); let busy = false, bad = 0;
+  function push(st, id, v) {
+    if (!on || id == null) return;
+    const k = st + '/' + id, t = Date.now();
+    dirty[k] = t; saveMeta();
+    pend.set(k, { k, v, t }); flush();
+  }
+  async function flush() {
+    if (busy) return; busy = true;
+    while (pend.size) {
+      const [k, job] = pend.entries().next().value; pend.delete(k);
+      try {
+        const url = base() + '/api/store/rec?k=' + encodeURIComponent(k) + '&t=' + job.t;
+        const r = job.v ? await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: await enc(job.v) }) : await fetch(url, { method: 'DELETE' });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        meta[k] = job.t; if (dirty[k] === job.t) delete dirty[k]; saveMeta(); bad = 0;
+      } catch { if (++bad === 3) toast('Não consegui salvar no servidor agora; tento de novo quando o app abrir.'); }
+    }
+    busy = false;
+  }
+  const drain = () => new Promise(res => { const t = setInterval(() => { if (!busy && !pend.size) { clearInterval(t); res(); } }, 150); });
+  let cfgT = null;
+  function cfgChanged() { if (!on) return; clearTimeout(cfgT); cfgT = setTimeout(() => push('cfg', 'cfg', cfgOut()), 1500); }
+  async function readLocal(st, id) { return st === 'cfg' ? cfgOut() : await DB.get(st, id); }
+  // ao abrir: envia pendências, baixa novidades e, na primeira vez, envia o que só existe neste navegador
+  async function start() {
+    if (!location.protocol.startsWith('http')) return { on: false };
+    try { const j = await (await fetch(base() + '/api/store')).json(); on = !!j.enabled; } catch { on = false; }
+    if (!on) return { on: false };
+    for (const k of Object.keys(dirty)) { const [st, ...r] = k.split('/'); const id = r.join('/'); push(st, id, await readLocal(st, id).catch(() => null)); }
+    await drain();
+    const { entries } = await (await fetch(base() + '/api/store/index')).json();
+    const changed = new Set(); let got = 0;
+    const todo = Object.entries(entries).filter(([k, e]) => (e.t || 0) > (meta[k] || 0) && !dirty[k]);
+    for (const [k, e] of todo) {
+      const [st, ...r] = k.split('/'); const id = r.join('/');
+      try {
+        if (e.del) { if (st !== 'cfg') await DB.delLocal(st, id); }
+        else {
+          const resp = await fetch(base() + '/api/store/rec?k=' + encodeURIComponent(k)); if (!resp.ok) continue;
+          const v = await dec(await resp.text());
+          if (st === 'cfg') { const keep = {}; LOCAL_CFG.forEach(x => { if (x in cfg) keep[x] = cfg[x]; }); cfg = { ...cfg, ...v.data, ...keep }; saveCfgLocal(); }
+          else await DB.putLocal(st, v);
+        }
+        meta[k] = e.t; changed.add(st);
+        if (++got % 10 === 0) toast(`Baixando do servidor… ${got}/${todo.length}`);
+      } catch {}
+    }
+    saveMeta();
+    // primeira vez neste servidor: o que só existe aqui sobe
+    let up = 0;
+    for (const st of ['gens', 'projects', 'elements', 'canvases', 'clips']) {
+      for (const id of await DB.keys(st)) {
+        const k = st + '/' + id;
+        if (!entries[k] && !meta[k]) { const v = await DB.get(st, id); if (v) { push(st, id, v); up++; } }
+      }
+    }
+    if (!entries['cfg/cfg'] && !meta['cfg/cfg']) push('cfg', 'cfg', cfgOut());
+    if (up) { toast(`Enviando ${up} item(ns) deste navegador para o servidor…`); drain().then(() => toast('Tudo guardado no servidor.')); }
+    return { on: true, changed, got };
+  }
+  // ao voltar para a aba: avisa se outro aparelho mudou algo
+  async function check() {
+    if (!on || document.hidden) return;
+    try {
+      const { entries } = await (await fetch(base() + '/api/store/index')).json();
+      const n = Object.entries(entries).filter(([k, e]) => (e.t || 0) > (meta[k] || 0) && !dirty[k] && !pend.has(k)).length;
+      if (n) toast(`${n} novidade(s) de outro aparelho.`, 'Atualizar', () => location.reload(), 8000);
+    } catch {}
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+  return { push, start, cfgChanged, get on() { return on; } };
+})();
 
 /* =========================================================
    Provedores
@@ -5069,8 +5164,8 @@ const PROVIDERS = {
   },
   modelscope: {
     label: 'Qwen · ModelScope', free: true, refs: false,
-    models: () => cfg.msModels || [],
-    ready: () => !!cfg.msToken,
+    models: () => cfg.msOn ? (cfg.msModels || []) : [],   // desligado: a conta exige vínculo com a Alibaba Cloud
+    ready: () => !!cfg.msOn && !!cfg.msToken,
     async generate(job) {
       let r;
       try {
@@ -5846,7 +5941,7 @@ function modelPicker(anchor, cur, onPick, opts = {}) {
   const all = [];
   for (const [pk, P] of Object.entries(PROVIDERS)) for (const m of P.models()) all.push({ pk, P, m, k: mKey(pk, m.id) });
   const fav = () => new Set(cfg.modelFav || []), use = () => cfg.modelUse || {};
-  const provTabs = Object.entries(PROVIDERS).sort((a, b) => (b[1].ready() ? 1 : 0) - (a[1].ready() ? 1 : 0)).map(([pk, P]) => [pk, P.label.split('·')[0].trim() + (P.ready() ? '' : ' 🔒')]);
+  const provTabs = Object.entries(PROVIDERS).filter(([, P]) => P.models().length).sort((a, b) => (b[1].ready() ? 1 : 0) - (a[1].ready() ? 1 : 0)).map(([pk, P]) => [pk, P.label.split('·')[0].trim() + (P.ready() ? '' : ' 🔒')]);
   let tab = cfg.mpTab || 'all', q = '';
   if (tab === 'fav' && !fav().size) tab = 'all';
   if (!['all', 'fav', 'recent', 'top'].includes(tab) && !PROVIDERS[tab]) tab = 'all';
@@ -6476,6 +6571,7 @@ function openSettings(tab) {
         <section class="setpane ${setTab === 'provedores' ? 'on' : ''}" data-pane="provedores"><h2>Outros provedores</h2>
         <div class="grp"><h4>Qwen · ModelScope <span class="free">GRÁTIS</span></h4>
           <p>Qwen Image e Z-Image de graça pela API do ModelScope (cota diária). Crie conta em <b>modelscope.cn</b> (ou modelscope.ai), vincule a conta Alibaba Cloud que o site pedir e copie o token em <i>Access Tokens</i>. Passa pelo servidor local.</p>
+          <label class="switch" style="margin-bottom:8px"><input type="checkbox" id="sMsOn" ${cfg.msOn ? 'checked' : ''}> Mostrar os modelos do ModelScope no menu</label>
           <div class="row2" style="margin-bottom:8px"><input class="inp" id="sMs" type="password" placeholder="token ModelScope (ms-...)" value="${esc(cfg.msToken || '')}" autocomplete="off"></div>
           <div class="row2"><span style="font-size:13px;color:var(--tx2)">Endereço</span><select class="inp" id="sMsBase" style="max-width:320px">${['https://api-inference.modelscope.cn', 'https://api-inference.modelscope.ai'].map(u => `<option ${cfg.msBase === u ? 'selected' : ''}>${u}</option>`).join('')}</select></div>
         </div>
@@ -6551,7 +6647,7 @@ function openSettings(tab) {
   const collect = () => {
     cfg.runwareKey = $('#sKey').value.trim();
     cfg.pollToken = $('#sPoll').value.trim();
-    cfg.msToken = $('#sMs').value.trim(); cfg.msBase = $('#sMsBase').value;
+    cfg.msOn = $('#sMsOn').checked; cfg.msToken = $('#sMs').value.trim(); cfg.msBase = $('#sMsBase').value;
     cfg.pollInterval = Math.max(0, Math.min(60, Number($('#sInt').value) || 0));
     cfg.usdBrl = Number($('#sUsd').value) || cfg.usdBrl;
     cfg.sendRefs = $('#sRefs').checked;
@@ -9219,6 +9315,10 @@ const setHH = () => document.documentElement.style.setProperty('--hh', $('#hdr')
 addEventListener('resize', setHH);
 (async () => {
   setHH();
+  try {
+    const sy = await SYNC.start();
+    if (sy.on && sy.changed?.has('cfg')) { applyTheme(); renderMe(); }
+  } catch (err) { console.warn('sync', err); }
   try {
     const [g, p, e] = await Promise.all([DB.all('gens'), DB.all('projects'), DB.all('elements')]);
     state.items = g.sort((a, b) => b.createdAt - a.createdAt);

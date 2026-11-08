@@ -6,7 +6,7 @@
 // =========================================================
 import http from 'node:http';
 import { readFile, stat, writeFile, mkdir, rename, copyFile, unlink, appendFile, access, statfs } from 'node:fs/promises';
-import { constants as FS } from 'node:fs';
+import { constants as FS, createWriteStream } from 'node:fs';
 import os from 'node:os';
 import { execFile } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -64,7 +64,7 @@ async function getToken() {
 }
 
 // ---------- utilidades HTTP ----------
-const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type, X-Meta', 'Access-Control-Allow-Methods': 'GET,POST,PUT,OPTIONS' };
+const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type, X-Meta', 'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS' };
 const send = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', ...CORS }); res.end(JSON.stringify(obj)); };
 const readBody = req => new Promise((res, rej) => { const ch = []; let n = 0; req.on('data', c => { n += c.length; if (n > 60e6) { rej(new Error('Pedido grande demais')); req.destroy(); } else ch.push(c); }); req.on('end', () => res(Buffer.concat(ch).toString('utf8'))); req.on('error', rej); });
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.mp4': 'video/mp4', '.mov': 'video/quicktime', '.jpeg': 'image/jpeg' };
@@ -180,6 +180,48 @@ const okOrigin = req => {
   return /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)/.test(h) || /\.(local|lan|home|ts\.net)$/.test(h) || !h.includes('.');
 };
 
+
+// ---------- galeria guardada no servidor (Umbrel): o mesmo conteúdo em qualquer aparelho ----------
+// Cada registro do app (geração, projeto, elemento, canvas, cena, ajustes) vira um arquivo JSON em DATA/store/<tipo>/.
+// O index.json guarda a hora da última mudança de cada um (e as exclusões), para cada navegador baixar só o que mudou.
+const STORE_ON = IN_DOCKER || process.env.SHIN_STORE === '1';
+const STORE = path.join(DATA, 'store');
+const STORES = new Set(['gens', 'projects', 'elements', 'canvases', 'clips', 'cfg']);
+let sIndex = {};
+try { sIndex = JSON.parse(await readFile(path.join(STORE, 'index.json'), 'utf8')); } catch {}
+let sSave = null;
+const saveIndex = () => { clearTimeout(sSave); sSave = setTimeout(async () => { await mkdir(STORE, { recursive: true }); const tmp = path.join(STORE, 'index.json.tmp'); await writeFile(tmp, JSON.stringify(sIndex)); await rename(tmp, path.join(STORE, 'index.json')); }, 300); };
+function recPath(k) {
+  const [st, ...rest] = String(k || '').split('/'); const id = rest.join('/');
+  if (!STORES.has(st) || !id || id.length > 200) throw Object.assign(new Error('registro inválido'), { code: 400 });
+  return { st, id, file: path.join(STORE, st, encodeURIComponent(id).replace(/\./g, '%2E') + '.json') };
+}
+async function store(u, req, res) {
+  if (u.pathname === '/api/store' && req.method === 'GET') return send(res, 200, { enabled: STORE_ON, count: Object.values(sIndex).filter(x => !x.del).length });
+  if (!STORE_ON) return send(res, 404, { error: 'desligado' });
+  if (u.pathname === '/api/store/index' && req.method === 'GET') return send(res, 200, { entries: sIndex, now: Date.now() });
+  if (u.pathname !== '/api/store/rec') return send(res, 404, { error: 'rota desconhecida' });
+  const k = u.searchParams.get('k'), { file } = recPath(k), t = Number(u.searchParams.get('t')) || Date.now();
+  if (req.method === 'GET') {
+    const st = await stat(file).catch(() => null); if (!st) return send(res, 404, { error: 'não encontrado' });
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': st.size, ...CORS });
+    return res.end(await readFile(file));
+  }
+  if (req.method === 'PUT') {
+    await mkdir(path.dirname(file), { recursive: true });
+    const tmp = file + '.' + process.pid + '.tmp';
+    await new Promise((ok, bad) => { const w = createWriteStream(tmp); req.pipe(w); w.on('finish', ok); w.on('error', bad); req.on('error', bad); });
+    await rename(tmp, file);
+    sIndex[k] = { t }; saveIndex();
+    return send(res, 200, { ok: true, t });
+  }
+  if (req.method === 'DELETE') {
+    await unlink(file).catch(() => {});
+    sIndex[k] = { t, del: true }; saveIndex();
+    return send(res, 200, { ok: true, t });
+  }
+  return send(res, 405, { error: 'método' });
+}
 
 // ---------- Qwen e outros pelo ModelScope (API-Inference, assíncrona) ----------
 async function modelscope(b) {
@@ -394,6 +436,10 @@ const server = http.createServer(async (req, res) => {
       catch (e) { return send(res, e.code || 500, { ok: false, error: e.message }); }
     }
 
+    if (u.pathname.startsWith('/api/store')) {
+      if (!okOrigin(req)) return send(res, 403, { error: 'origem não permitida' });
+      try { return await store(u, req, res); } catch (e) { return send(res, e.code || 500, { error: e.message }); }
+    }
     if (u.pathname.startsWith('/api/disk')) {
       if (!okOrigin(req)) return send(res, 403, { error: 'Abra o app pelo endereço http://localhost:' + PORT + ' para salvar no disco.' });
       try { return await disk(u, req, res); } catch (e) { return send(res, 500, { error: e.message }); }
