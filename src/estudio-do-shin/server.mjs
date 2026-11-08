@@ -455,6 +455,14 @@ const server = http.createServer(async (req, res) => {
       return res.end(r.text);
     }
 
+    // ícone do app (fica embutido no HTML; o Safari só aceita ícone vindo de um endereço de verdade)
+    if (/^\/(favicon\.(png|ico)|apple-touch-icon(-precomposed)?\.png)$/.test(u.pathname)) {
+      const html = await readFile(path.join(DIR, 'estudio-do-shin.html'), 'utf8');
+      const m = html.match(new RegExp('rel="shin-icon-' + (u.pathname.includes('apple') ? 180 : 64) + '" href="data:image/png;base64,([^"]+)"'));
+      if (!m) return send(res, 404, { error: 'sem ícone' });
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' });
+      return res.end(Buffer.from(m[1], 'base64'));
+    }
     // arquivos do app (só desta pasta)
     let p = decodeURIComponent(u.pathname);
     if (p === '/') p = '/estudio-do-shin.html';
