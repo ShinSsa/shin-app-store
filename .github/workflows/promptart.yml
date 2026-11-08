@@ -44,12 +44,12 @@ jobs:
           curl -sf "${H[@]}" -X POST -H "Content-Type: application/json" -d '{"name":"Teste"}' http://localhost:8798/api/categories
           curl -sf "${H[@]}" -F file=@assets/promptart.png http://localhost:8798/api/uploads | tee /tmp/up.json
           grep -q '"thumb_url"' /tmp/up.json
-          ls -la /tmp/dados/storage/app/uploads/uploads/1/thumbs/
+          sudo ls -la /tmp/dados/storage/app/uploads/uploads/1/thumbs/
           curl -sf -b cj -o /tmp/b.zip http://localhost:8798/backup/exportar && unzip -l /tmp/b.zip
           curl -sf "${H[@]}" -F arquivo=@/tmp/b.zip http://localhost:8798/backup/importar
           echo
-          ls -la /tmp/dados
-          test "$(stat -c %u /tmp/dados/promptart.sqlite)" = 1000
+          sudo ls -la /tmp/dados
+          test "$(sudo stat -c %u /tmp/dados/promptart.sqlite)" = 1000
           docker logs pa 2>&1 | grep -i -E "error|exception" && exit 1 || echo "== TUDO CERTO =="
 
       - uses: docker/login-action@v3
