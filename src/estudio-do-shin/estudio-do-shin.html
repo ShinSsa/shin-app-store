@@ -430,7 +430,27 @@ body.cvmode main,body.cvmode .composer{display:none}
 .node .nh{position:absolute;left:6px;bottom:100%;margin-bottom:6px;display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--tx);cursor:grab;white-space:nowrap}
 .node .nh svg{width:15px;height:15px;color:var(--tx2)}
 .node .nb{background:var(--bg2);border:1.5px solid var(--line2);border-radius:18px;overflow:hidden;cursor:grab}
-.node.sel .nb{border-color:#4d8dff;box-shadow:0 0 0 1px #4d8dff}
+.node.sel .nb,.node.msel .nb{border-color:#4d8dff;box-shadow:0 0 0 1px #4d8dff}
+.node.ncol .nb{background:var(--nc);border-color:color-mix(in srgb,var(--nc) 70%,#fff 12%)}
+.node.ncol .nb textarea,.node.ncol .nb .inp,.node.ncol .nb .nlist{background:rgba(0,0,0,.18)}
+#cvGroups{position:absolute;left:0;top:0}
+.cgroup{position:absolute;border-radius:22px;background:color-mix(in srgb,var(--gc,#7c8494) 16%,transparent);border:1.5px solid color-mix(in srgb,var(--gc,#7c8494) 55%,transparent);pointer-events:none}
+.cgroup.gsel{border-color:#4d8dff;box-shadow:0 0 0 1px #4d8dff}
+.cgroup .gt{position:absolute;left:4px;bottom:100%;margin-bottom:8px;font-size:22px;font-weight:700;color:var(--tx);pointer-events:auto;cursor:grab;white-space:nowrap;padding:2px 8px;border-radius:8px}
+.cgroup .gt:hover{background:rgba(127,127,127,.12)}
+.cgroup .gtools{position:absolute;left:0;bottom:100%;margin-bottom:52px;display:flex;align-items:center;gap:2px;background:var(--bg2);border:1px solid var(--line2);border-radius:14px;padding:4px;box-shadow:0 8px 24px var(--shadow);pointer-events:auto;white-space:nowrap}
+#cvMarq{position:absolute;border:1px solid #4d8dff;background:rgba(77,141,255,.12);pointer-events:none;z-index:60;display:none}
+#cvMbar{position:absolute;z-index:61;display:none;align-items:center;gap:2px;background:var(--bg2);border:1px solid var(--line2);border-radius:14px;padding:4px;box-shadow:0 8px 24px var(--shadow);white-space:nowrap;transform:translate(-50%,-100%)}
+#cvMbar button,.cgroup .gtools button{height:32px;min-width:32px;padding:0 8px;border-radius:9px;display:inline-flex;align-items:center;gap:6px;color:var(--tx2);font-size:12.5px}
+#cvMbar button:hover,.cgroup .gtools button:hover{background:var(--bg3);color:var(--tx)}
+#cvMbar svg,.cgroup .gtools svg{width:16px;height:16px}
+#cvMbar .cnt{font-size:12px;color:var(--tx3);padding:0 8px}
+#cvMbar i,.cgroup .gtools i{width:1px;height:20px;background:var(--line2);margin:0 3px}
+.ccols{display:flex;gap:6px;padding:6px}
+.ccols button{width:26px;height:26px;border-radius:50%;border:2px solid transparent;display:grid;place-items:center}
+.ccols button.on{border-color:var(--tx)}
+.ccols .none{background:#fff;position:relative;overflow:hidden}.ccols .none::after{content:"";position:absolute;width:140%;height:2px;background:#e03131;transform:rotate(-45deg)}
+.cdot{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--line2);display:inline-block}
 .node textarea,.node input,.node select{user-select:text;-webkit-user-select:text;cursor:text}
 .port{position:absolute;width:32px;height:32px;border-radius:50%;background:var(--bg3);border:1px solid var(--line2);display:grid;place-items:center;color:var(--tx2);cursor:crosshair;z-index:2}
 .port svg{width:15px;height:15px}
@@ -915,7 +935,7 @@ header .chip.btn:hover,header .iconbtn:hover{background:var(--glassBtnH)}
 
 <div class="vid hide" id="vid"></div>
 <div class="cv hide" id="cv">
-  <div class="cv-world" id="cvWorld"><svg class="cv-draw" id="cvDraw"></svg><svg class="cv-edges" id="cvEdges"></svg><div id="cvCut"></div><div id="cvNodes"></div><div id="cvGuides"></div></div>
+  <div class="cv-world" id="cvWorld"><svg class="cv-draw" id="cvDraw"></svg><svg class="cv-edges" id="cvEdges"></svg><div id="cvGroups"></div><div id="cvCut"></div><div id="cvNodes"></div><div id="cvGuides"></div></div><div id="cvMarq"></div><div id="cvMbar"></div>
   <div class="cv-top"><div class="cv-title" id="cvTitle"></div></div>
   <div class="cv-rail" id="cvRail"></div>
   <div class="cv-empty hide" id="cvEmpty"></div>
@@ -7031,11 +7051,22 @@ const CV = (() => {
   const key = () => { const v = view(); return v.kind === 'project' && proj(v.pid) ? v.pid : 'geral'; };
   const DRAW = () => (cfg.draw ||= { mode: 'pen', color: '#ffffff', size: 4, shape: 'rect' });
   const N = id => cv.nodes.find(n => n.id === id);
+  // cores, seleção múltipla e grupos (estilo Magnific)
+  const NCOL = { gray: '#3b3e46', red: '#6e2b2b', orange: '#714420', yellow: '#655c1d', green: '#2c5631', teal: '#24545a', blue: '#254375', purple: '#552c6b' };
+  const NCOL_DOT = { gray: '#4a4d55', red: '#c0392b', orange: '#d9822b', yellow: '#c9b22b', green: '#3fa34d', teal: '#2fa3a8', blue: '#3b6fd8', purple: '#9b4dca' };
+  const COLORABLE = new Set(['text', 'list', 'assist', 'el']);
+  let multi = new Set(), selGroup = null, spaceDown = false;
+  const groups = () => (cv.groups ||= []);
+  function colorPop(anchor, cur, onPick) {
+    openPop(anchor, `<div class="ccols"><button class="none ${!cur ? 'on' : ''}" data-c="" title="Sem cor"></button>${Object.entries(NCOL_DOT).map(([k, c]) => `<button data-c="${k}" class="${cur === k ? 'on' : ''}" style="background:${c}" title="${k}"></button>`).join('')}</div>`, ev => {
+      const b = ev.target.closest('[data-c]'); if (!b) return; closePop(); onPick(b.dataset.c || null);
+    }, { width: 300 });
+  }
   let tSave;
   const save = () => { clearTimeout(tSave); tSave = setTimeout(() => cv && DB.put('canvases', JSON.parse(JSON.stringify(cv))), 300); };
-  const snap = () => JSON.stringify({ nodes: cv.nodes, edges: cv.edges, draw: cv.draw || [] });
+  const snap = () => JSON.stringify({ nodes: cv.nodes, edges: cv.edges, draw: cv.draw || [], groups: cv.groups || [] });
   function commit() { undoS.push(snap()); if (undoS.length > 60) undoS.shift(); redoS.length = 0; }
-  function restore(js) { const o = JSON.parse(js); cv.nodes = o.nodes; cv.edges = o.edges; cv.draw = o.draw || []; selNode = selEdge = selDraw = null; render(); save(); }
+  function restore(js) { const o = JSON.parse(js); cv.nodes = o.nodes; cv.edges = o.edges; cv.draw = o.draw || []; cv.groups = o.groups || []; selNode = selEdge = selDraw = selGroup = null; multi.clear(); render(); save(); }
   function undo() { if (!undoS.length) return toast('Nada para desfazer.'); redoS.push(snap()); restore(undoS.pop()); }
   function redo() { if (!redoS.length) return; undoS.push(snap()); restore(redoS.pop()); }
 
@@ -7089,6 +7120,10 @@ const CV = (() => {
     window.addEventListener('blur', () => { if (drag) { drag = null; tmpLine = null; el.classList.remove('panning'); pointers.clear(); pinch = null; drawEdges(); } });
     el.addEventListener('contextmenu', e => { if (e.target.closest('textarea, input')) return; e.preventDefault(); if (!e.target.closest('.node')) openMenu(e.clientX, e.clientY, null); });
     document.addEventListener('keydown', onKey);
+    document.addEventListener('keyup', e => { if (e.code === 'Space') { spaceDown = false; el.classList.remove('hand'); if (tool === 'hand') el.classList.add('hand'); } });
+    $('#cvMbar').addEventListener('pointerdown', e => e.stopPropagation());
+    $('#cvMbar').addEventListener('click', onMbar);
+    $('#cvGroups').addEventListener('click', onGroupTools);
     addEventListener('resize', () => on && drawEdges());
   }
   async function open() {
@@ -7153,6 +7188,7 @@ const CV = (() => {
   function applyView() {
     const { x, y, z } = cv.view;
     world.style.transform = `translate(${x}px,${y}px) scale(${z})`;
+    if (multi.size > 1) renderMbar();
     let g = 24 * z; while (g < 11) g *= 2;
     el.style.backgroundSize = `${g}px ${g}px`;
     if (selDraw) placeDsel();
@@ -7297,6 +7333,7 @@ const CV = (() => {
     const p = proj(curBase), pgn = pages.length > 1 ? (pages.find(x => x.id === curPid()) || pages[0]).name : '';
     $('#cvTitle').innerHTML = `${esc(p ? p.name : 'Canvas geral')}${pgn ? ` <span>/ ${esc(pgn)}</span>` : ''} <span>· ${cv.nodes.length} nós</span>`;
     renderPages(); drawSVG(); renderDbar();
+    multi.forEach(id => { if (!N(id)) multi.delete(id); });
     nodesEl.innerHTML = cv.nodes.map(nodeHTML).join('');
     nodesEl.querySelectorAll('img').forEach(im => { if (!im.complete) im.onload = () => drawEdges(); });
     document.querySelectorAll('#cvRail [data-cv]').forEach(b => b.classList.toggle('on', b.dataset.cv === tool));
@@ -7325,8 +7362,10 @@ const CV = (() => {
       ${(runnable && n.type !== 'video' && outItem(n)) || (n.type === 'image' && n.data.data) ? `<button data-a="edit" title="Editar imagem (pintar e explicar)">${sm(ICON_BRUSH)} Editar</button>` : ''}
       ${outItem(n) ? `<button data-a="down" title="Baixar resultado">${I.down}</button>` : ''}
       ${n.type === 'gen' ? `<button data-a="toBar" title="Mandar prompt e ajustes para a barra da Galeria">${sm('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M12 3v8M8.5 7.5 12 11l3.5-3.5"/></svg>')}</button>` : ''}
+      ${COLORABLE.has(n.type) ? `<button data-a="ncolor" title="Cor do nó"><span class="cdot" style="background:${NCOL_DOT[n.data.ncolor] || 'transparent'}"></span></button>` : ''}
       <button data-a="del" class="danger" title="Excluir">${I.trash}</button><button data-a="more" title="Mais opções">•••</button></div>` : '';
-    return `<div class="node t-${n.type} ${s ? 'sel' : ''}" data-id="${n.id}" style="left:${n.x}px;top:${n.y}px;width:${nodeW(n)}px;${n.type === 'note' ? `--note:${NOTE_COLORS[n.data.color] || NOTE_COLORS.yellow}` : ''}">
+    const nc = COLORABLE.has(n.type) && NCOL[n.data.ncolor];
+    return `<div class="node t-${n.type} ${s ? 'sel' : ''} ${multi.has(n.id) ? 'msel' : ''} ${nc ? 'ncol' : ''}" data-id="${n.id}" style="left:${n.x}px;top:${n.y}px;width:${nodeW(n)}px;${n.type === 'note' ? `--note:${NOTE_COLORS[n.data.color] || NOTE_COLORS.yellow}` : ''}${nc ? `--nc:${nc}` : ''}">
       <div class="nh" data-drag>${T.icon}<span>${esc(n.title)}</span></div>${tools}
       <div class="nb" data-drag>${bodyHTML(n)}</div>${ins}${outs}${s ? '<i class="nrs" data-rs title="Arraste para redimensionar"></i>' : ''}</div>`;
   }
@@ -7498,8 +7537,68 @@ const CV = (() => {
   }
   const bez = (a, b) => { const dx = Math.max(50, Math.abs(b.x - a.x) * 0.5); return `M${a.x},${a.y} C${a.x + dx},${a.y} ${b.x - dx},${b.y} ${b.x},${b.y}`; };
   let tmpLine = null;
+  function nodeBox(id) { const e = nodesEl.querySelector(`.node[data-id="${id}"]`), n = N(id); if (!e || !n) return null; return { x: n.x, y: n.y, w: e.offsetWidth, h: e.offsetHeight }; }
+  function bboxOf(ids) { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; ids.forEach(id => { const b = nodeBox(id); if (!b) return; x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h); }); return x0 === Infinity ? null : { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }; }
+  const IC_GROUP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><rect x="7" y="7" width="6" height="6" rx="1"/><rect x="11" y="11" width="6" height="6" rx="1"/></svg>';
+  const IC_GRID = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="5" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="12" cy="19" r="2"/><circle cx="19" cy="19" r="2"/></svg>';
+  const IC_UNGROUP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 3"><rect x="3" y="3" width="18" height="18" rx="3"/></svg>';
+  function renderGroups() {
+    const G = $('#cvGroups'); if (!G) return;
+    const gs = groups(); gs.forEach(g => g.ids = g.ids.filter(id => N(id)));
+    cv.groups = gs.filter(g => g.ids.length);
+    const pad = 28;
+    G.innerHTML = cv.groups.map(g => { const b = bboxOf(g.ids); if (!b) return '';
+      const sel = selGroup === g.id;
+      return `<div class="cgroup ${sel ? 'gsel' : ''}" data-gid="${g.id}" style="left:${b.x - pad}px;top:${b.y - pad - 8}px;width:${b.w + pad * 2}px;height:${b.h + pad * 2 + 8}px;${NCOL_DOT[g.color] ? `--gc:${NCOL_DOT[g.color]}` : ''}">
+        ${sel ? `<div class="gtools"><button data-g="rename" title="Renomear">${I.pen} Renomear</button><button data-g="color" title="Cor do grupo"><span class="cdot" style="background:${NCOL_DOT[g.color] || 'transparent'}"></span></button><i></i><button data-g="selnodes" title="Selecionar os nós do grupo">Selecionar nós</button><button data-g="ungroup" title="Desagrupar (os nós ficam)">${IC_UNGROUP} Desagrupar</button></div>` : ''}
+        <div class="gt" data-gdrag title="Arraste para mover o grupo · clique para opções">${esc(g.name || 'Grupo')}</div></div>`; }).join('');
+  }
+  function renderMbar() {
+    const bar = $('#cvMbar'); if (!bar) return;
+    if (multi.size < 2) { bar.style.display = 'none'; return; }
+    const b = bboxOf([...multi]); if (!b) { bar.style.display = 'none'; return; }
+    const z = cv.view.z;
+    bar.style.left = (cv.view.x + (b.x + b.w / 2) * z) + 'px'; bar.style.top = (cv.view.y + b.y * z - 16) + 'px';
+    const anyCol = [...multi].some(id => COLORABLE.has(N(id)?.type)), anyOut = [...multi].some(id => outItem(N(id)));
+    bar.innerHTML = `<span class="cnt">${multi.size} nós</span><i></i><button data-m2="group" title="Agrupar (⌘G)">${IC_GROUP} Agrupar</button><button data-m2="grid" title="Organizar em grade">${IC_GRID}</button>${anyCol ? `<button data-m2="color" title="Cor dos nós de texto, lista, assistente e elemento"><span class="cdot"></span></button>` : ''}<i></i><button data-m2="dup" title="Duplicar">${I.copy}</button>${anyOut ? `<button data-m2="down" title="Baixar resultados">${I.down}</button>` : ''}<button data-m2="del" title="Excluir">${I.trash}</button>`;
+    bar.style.display = 'flex';
+  }
+  function makeGroup(ids) {
+    if (ids.length < 1) return;
+    commit();
+    groups().forEach(g => g.ids = g.ids.filter(id => !ids.includes(id)));
+    const g = { id: 'g' + Date.now().toString(36), name: 'Grupo ' + (groups().length + 1), color: null, ids: [...ids] };
+    groups().push(g); multi.clear(); selNode = null; selGroup = g.id; save(); render(); toast('Grupo criado. Arraste pelo nome para mover tudo junto.');
+  }
+  function arrangeGrid(ids) {
+    commit();
+    const bs = ids.map(id => ({ id, ...nodeBox(id) })).sort((a, b) => a.y - b.y || a.x - b.x);
+    const cols = Math.ceil(Math.sqrt(bs.length)), gap = 40, x0 = Math.min(...bs.map(b => b.x)), y0 = Math.min(...bs.map(b => b.y));
+    let y = y0;
+    for (let r = 0; r < bs.length; r += cols) { const row = bs.slice(r, r + cols); let x = x0; row.forEach(b => { const n = N(b.id); n.x = Math.round(x); n.y = Math.round(y); x += b.w + gap; }); y += Math.max(...row.map(b => b.h)) + gap; }
+    save(); render();
+  }
+  function onMbar(e) {
+    const a = e.target.closest('[data-m2]')?.dataset.m2; if (!a) return;
+    const ids = [...multi];
+    if (a === 'group') makeGroup(ids);
+    if (a === 'grid') arrangeGrid(ids);
+    if (a === 'color') colorPop(e.target.closest('button'), null, c => { commit(); ids.forEach(id => { const n = N(id); if (n && COLORABLE.has(n.type)) { if (c) n.data.ncolor = c; else delete n.data.ncolor; } }); save(); render(); });
+    if (a === 'dup') { commit(); const nn = ids.map(id => dupNode(N(id))).filter(Boolean); multi = new Set(nn.map(n => n.id)); render(); }
+    if (a === 'down') ids.forEach(id => { const it = outItem(N(id)); if (it) download(it); });
+    if (a === 'del') { commit(); cv.nodes = cv.nodes.filter(n => !multi.has(n.id)); cv.edges = cv.edges.filter(x => !multi.has(x.from) && !multi.has(x.to)); multi.clear(); save(); render(); }
+  }
+  function onGroupTools(e) {
+    const a = e.target.closest('[data-g]')?.dataset.g; if (!a) return;
+    const g = groups().find(x => x.id === selGroup); if (!g) return;
+    if (a === 'rename') { const v = prompt('Nome do grupo', g.name || 'Grupo'); if (v != null) { commit(); g.name = v.trim() || 'Grupo'; save(); renderGroups(); } }
+    if (a === 'color') colorPop(e.target.closest('button'), g.color, c => { commit(); g.color = c; save(); renderGroups(); });
+    if (a === 'selnodes') { multi = new Set(g.ids); selGroup = null; selNode = null; render(); }
+    if (a === 'ungroup') { commit(); cv.groups = groups().filter(x => x !== g); selGroup = null; save(); render(); }
+  }
   function drawEdges() {
     if (!on || !cv) return;
+    renderGroups(); renderMbar();
     let h = '', cut = '';
     for (const e of cv.edges) {
       const a = portPos(e.from, 'out', e.fp), b = portPos(e.to, 'in', e.tp); if (!a || !b) continue;
@@ -7972,6 +8071,7 @@ const CV = (() => {
       case 'angmulti': d.multi = !d.multi; save(); rerenderNode(n); break;
       case 'angsel': { const id = b.dataset.i; if (d.sel === id && Date.now() - (d._t || 0) < 400) { const its = nodeItems(n); openLightbox(its.findIndex(i => i.id === id), () => nodeItems(n)); } d.sel = id; d._t = Date.now(); save(); nodesEl.querySelectorAll(`[data-angres="${n.id}"] button`).forEach(x => x.classList.toggle('on', x.dataset.i === id)); drawEdges(); cv.edges.filter(x => x.from === n.id).forEach(x => { const t = N(x.to); if (t && t.type !== 'list') rerenderNode(t); }); break; }
       case 'more': moreMenu(n, b); break;
+      case 'ncolor': colorPop(b, d.ncolor, c => { commit(); if (c) d.ncolor = c; else delete d.ncolor; save(); rerenderNode(n); }); break;
       case 'vmodel': openPop(b, `<h6>Vídeo · Google Veo</h6>${VEO_MODELS.map(m => `<button class="opt ${d.model === m.id ? 'on' : ''}" data-k="${m.id}"><span class="two"><span>${m.label}</span><small>≈ ${brl(m.usd * cfg.usdBrl)} por segundo</small></span></button>`).join('')}`, ev => { const o = ev.target.closest('[data-k]'); if (!o) return; closePop(); d.model = o.dataset.k; save(); rerenderNode(n); }, { width: 280, below: true }); break;
       case 'vfmt': openPop(b, `<h6>Proporção</h6><div class="seg2">${['16:9', '9:16'].map(r => `<button data-r="${r}" class="${d.ratio === r ? 'on' : ''}">${r}</button>`).join('')}</div><h6>Qualidade</h6><div class="seg2">${['720p', '1080p'].map(r => `<button data-q="${r}" class="${d.res === r ? 'on' : ''}">${r}</button>`).join('')}</div>`, ev => { const o = ev.target.closest('[data-r],[data-q]'); if (!o) return; if (o.dataset.r) d.ratio = o.dataset.r; else d.res = o.dataset.q; closePop(); save(); rerenderNode(n); }, { width: 240, below: true }); break;
       case 'vdur': openPop(b, `<h6>Duração</h6><div class="seg2">${[4, 6, 8].map(x => `<button data-d="${x}" class="${d.dur === x ? 'on' : ''}">${x}s</button>`).join('')}</div>`, ev => { const o = ev.target.closest('[data-d]'); if (!o) return; d.dur = Number(o.dataset.d); closePop(); save(); rerenderNode(n); }, { width: 220, below: true }); break;
@@ -8053,7 +8153,32 @@ const CV = (() => {
     const hit = e.target.closest('.hit');
     if (hit) { selEdge = hit.dataset.edge; selNode = null; render(); return; }
     if (e.target.closest('.cut')) return;
+    if (e.target.closest('.gtools')) return;
+    const gt = e.target.closest('[data-gdrag]');
+    if (gt && tool === 'select') {
+      e.preventDefault(); closePop();
+      const g = groups().find(x => x.id === gt.closest('.cgroup').dataset.gid); if (!g) return;
+      if (selGroup !== g.id || selNode || multi.size) { selGroup = g.id; selNode = selEdge = null; multi.clear(); render(); }
+      drag = { mode: 'gmove', g, sx: e.clientX, sy: e.clientY, o: g.ids.map(id => { const n = N(id); return { n, x: n.x, y: n.y }; }), moved: false };
+      return;
+    }
     const ne = e.target.closest('.node');
+    if (ne && tool === 'select' && e.shiftKey && !interactive(e.target)) {
+      e.preventDefault();
+      const id = ne.dataset.id;
+      if (selNode && selNode !== id) multi.add(selNode);
+      multi.has(id) ? multi.delete(id) : multi.add(id);
+      selNode = null; selGroup = null;
+      if (multi.size === 1) { selNode = [...multi][0]; multi.clear(); }
+      render(); return;
+    }
+    if (ne && tool === 'select' && multi.has(ne.dataset.id) && multi.size > 1 && !interactive(e.target)) {
+      e.preventDefault();
+      const n = N(ne.dataset.id);
+      drag = { mode: 'node', n, sx: e.clientX, sy: e.clientY, ox: n.x, oy: n.y, moved: false, group: [...multi].map(id => { const m = N(id); return { n: m, x: m.x, y: m.y }; }) };
+      return;
+    }
+    if (ne && tool === 'select' && (multi.size || selGroup)) { multi.clear(); selGroup = null; }
     if (ne && tool === 'select') {
       if (selNode !== ne.dataset.id) {
         selNode = ne.dataset.id; selEdge = null; selDraw = null;
@@ -8084,8 +8209,14 @@ const CV = (() => {
     if (e.target.closest('.cv-dsel, .cv-pages, .cv-dbar')) return;
     // fundo: desmarca e move a tela
     if (selDraw) { selDraw = null; drawSVG(); }
-    if (selNode || selEdge) { selNode = null; selEdge = null; render(); }
+    if (selNode || selEdge || multi.size || selGroup) { selNode = null; selEdge = null; selGroup = null; if (!e.shiftKey) multi.clear(); render(); }
     closePop();
+    // fundo com a seta (mouse): arrastar faz um retângulo de seleção. Espaço + arrastar, a mãozinha ou o toque movem a tela.
+    if (tool === 'select' && e.pointerType === 'mouse' && e.button === 0 && !spaceDown) {
+      e.preventDefault(); document.activeElement?.blur?.();
+      drag = { mode: 'marq', sx: e.clientX, sy: e.clientY, add: e.shiftKey, base: new Set(multi), moved: false };
+      return;
+    }
     drag = { mode: 'pan', sx: e.clientX, sy: e.clientY, ox: cv.view.x, oy: cv.view.y };
     el.classList.add('panning');
   }
@@ -8130,6 +8261,26 @@ const CV = (() => {
       if (drag.ta) { drag.n.h = Math.round(Math.max(80, drag.oh + dy)); drag.ta.style.height = drag.n.h + 'px'; }
       else if (!drag._t) { drag._t = requestAnimationFrame(() => { drag && (drag._t = 0); const c = drag?.ne.querySelector('.gcard'); if (c) { c.setAttribute('style', cardStyle(drag.n)); c.classList.toggle('wide', isWide(drag.n)); } drawEdges(); }); }
       drawEdges();
+    }
+    if (drag.mode === 'gmove' || (drag.mode === 'node' && drag.group)) {
+      const dx = (e.clientX - drag.sx) / cv.view.z, dy = (e.clientY - drag.sy) / cv.view.z;
+      if (!drag.moved && Math.hypot(dx, dy) > 3) { drag.moved = true; commit(); }
+      if (drag.moved) { const list = drag.mode === 'gmove' ? drag.o : drag.group;
+        list.forEach(o => { o.n.x = Math.round(o.x + dx); o.n.y = Math.round(o.y + dy); const ne = nodesEl.querySelector(`.node[data-id="${o.n.id}"]`); if (ne) { ne.style.left = o.n.x + 'px'; ne.style.top = o.n.y + 'px'; } });
+        drawEdges(); }
+      return;
+    }
+    if (drag.mode === 'marq') {
+      const r = el.getBoundingClientRect(), m = $('#cvMarq');
+      if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 4) drag.moved = true;
+      if (!drag.moved) return;
+      const x0 = Math.min(drag.sx, e.clientX), y0 = Math.min(drag.sy, e.clientY), x1 = Math.max(drag.sx, e.clientX), y1 = Math.max(drag.sy, e.clientY);
+      Object.assign(m.style, { display: 'block', left: (x0 - r.left) + 'px', top: (y0 - r.top) + 'px', width: (x1 - x0) + 'px', height: (y1 - y0) + 'px' });
+      const a = toWorld(x0, y0), b = toWorld(x1, y1), next = new Set(drag.add ? drag.base : []);
+      cv.nodes.forEach(n => { const bx = nodeBox(n.id); if (bx && bx.x < b.x && bx.x + bx.w > a.x && bx.y < b.y && bx.y + bx.h > a.y) next.add(n.id); });
+      multi = next;
+      nodesEl.querySelectorAll('.node').forEach(ne => ne.classList.toggle('msel', multi.has(ne.dataset.id)));
+      return;
     }
     if (drag.mode === 'node') {
       const dx = (e.clientX - drag.sx) / cv.view.z, dy = (e.clientY - drag.sy) / cv.view.z;
@@ -8195,6 +8346,8 @@ const CV = (() => {
     pointers.delete(e.pointerId); if (pointers.size < 2) pinch = null; clearGuides();
     if (!drag) return;
     const d = drag; drag = null; el.classList.remove('panning');
+    if (d.mode === 'marq') { $('#cvMarq').style.display = 'none'; if (multi.size === 1) { selNode = [...multi][0]; multi.clear(); } render(); return; }
+    if (d.mode === 'gmove') { if (d.moved) save(); return; }
     if (d.mode === 'pan' || d.mode === 'node') { save(); return; }
     if (d.mode === 'orbit') { save(); paintAngle(d.n); return; }
     if (d.mode === 'pen') { d.it.p = simplify(d.it.p, 0.6 / cv.view.z).map(([x, y]) => [Math.round(x * 10) / 10, Math.round(y * 10) / 10]); save(); drawSVG(); return; }
@@ -8239,6 +8392,10 @@ const CV = (() => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd' && selNode && !typing) { e.preventDefault(); dupNode(N(selNode)); return; }
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd' && selDraw && !typing) { e.preventDefault(); const it = cv.draw.find(x => x.id === selDraw); if (it) dupDraw(it); return; }
     if (typing) { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { const n = N(e.target.closest('.node')?.dataset.id); if (n && RUNNABLE.has(n.type)) { e.preventDefault(); runNode(n); } } return; }
+    if (e.code === 'Space') { e.preventDefault(); if (!spaceDown) { spaceDown = true; el.classList.add('hand'); } return; }
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'g') { e.preventDefault(); const ids = multi.size ? [...multi] : selNode ? [selNode] : []; if (e.shiftKey && selGroup) { commit(); cv.groups = groups().filter(g => g.id !== selGroup); selGroup = null; save(); render(); } else if (ids.length) makeGroup(ids); return; }
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); multi = new Set(cv.nodes.map(n => n.id)); selNode = null; render(); return; }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && multi.size) { e.preventDefault(); onMbar({ target: { closest: () => ({ dataset: { m2: 'del' } }) } }); return; }
     if (e.key === 'n' || e.key === 'N') { e.preventDefault(); openMenu(null, null, null); }
     if (e.key === 'v' || e.key === 'V') { tool = 'select'; render(); }
     if (e.key === 'h' || e.key === 'H') { tool = 'hand'; render(); }
@@ -8251,7 +8408,7 @@ const CV = (() => {
       if (selEdge) { commit(); cv.edges = cv.edges.filter(x => x.id !== selEdge); selEdge = null; save(); render(); }
       else delNode(selNode);
     }
-    if (e.key === 'Escape') { closeMenu(); selNode = selEdge = selDraw = null; if (tool === 'draw') tool = 'select'; render(); }
+    if (e.key === 'Escape') { closeMenu(); selNode = selEdge = selDraw = selGroup = null; multi.clear(); if (tool === 'draw') tool = 'select'; render(); }
   }
 
   /* ---------- menu ⋯ do nó e editor de prompt ---------- */
