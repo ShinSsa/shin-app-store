@@ -395,6 +395,8 @@ body.cvmode main,body.cvmode .composer{display:none}
   background-color:var(--bg);background-image:radial-gradient(circle,var(--line2) 1px,transparent 1.2px)}
 .cv.hand,.cv.panning{cursor:grab}.cv.panning{cursor:grabbing}
 .cv-world{position:absolute;left:0;top:0;transform-origin:0 0}
+#cvGuides{position:absolute;left:0;top:0;pointer-events:none;z-index:50}
+#cvGuides i{position:absolute;background:#ff3d8b;display:block}
 .cv-edges{position:absolute;left:0;top:0;width:1px;height:1px;overflow:visible;pointer-events:none}
 .cv-edges path{fill:none;stroke:#7d6cf2;stroke-width:2.5;opacity:.85}
 .cv-edges path.sel{stroke:#a99bff;stroke-width:3.5;stroke-dasharray:8 6;opacity:1}
@@ -913,7 +915,7 @@ header .chip.btn:hover,header .iconbtn:hover{background:var(--glassBtnH)}
 
 <div class="vid hide" id="vid"></div>
 <div class="cv hide" id="cv">
-  <div class="cv-world" id="cvWorld"><svg class="cv-draw" id="cvDraw"></svg><svg class="cv-edges" id="cvEdges"></svg><div id="cvCut"></div><div id="cvNodes"></div></div>
+  <div class="cv-world" id="cvWorld"><svg class="cv-draw" id="cvDraw"></svg><svg class="cv-edges" id="cvEdges"></svg><div id="cvCut"></div><div id="cvNodes"></div><div id="cvGuides"></div></div>
   <div class="cv-top"><div class="cv-title" id="cvTitle"></div></div>
   <div class="cv-rail" id="cvRail"></div>
   <div class="cv-empty hide" id="cvEmpty"></div>
@@ -8132,7 +8134,13 @@ const CV = (() => {
     if (drag.mode === 'node') {
       const dx = (e.clientX - drag.sx) / cv.view.z, dy = (e.clientY - drag.sy) / cv.view.z;
       if (!drag.moved && Math.hypot(dx, dy) > 3) { drag.moved = true; commit(); }
-      if (drag.moved) { drag.n.x = Math.round(drag.ox + dx); drag.n.y = Math.round(drag.oy + dy); const ne = nodesEl.querySelector(`.node[data-id="${drag.n.id}"]`); if (ne) { ne.style.left = drag.n.x + 'px'; ne.style.top = drag.n.y + 'px'; } drawEdges(); }
+      if (drag.moved) {
+        let x = Math.round(drag.ox + dx), y = Math.round(drag.oy + dy);
+        const ne = nodesEl.querySelector(`.node[data-id="${drag.n.id}"]`);
+        if (ne && !e.altKey) { const sn = snapNode(drag.n.id, x, y, ne.offsetWidth, ne.offsetHeight); x = sn.x; y = sn.y; } else clearGuides();
+        drag.n.x = x; drag.n.y = y;
+        if (ne) { ne.style.left = x + 'px'; ne.style.top = y + 'px'; } drawEdges();
+      }
     }
     if (drag.mode === 'link') {
       const b = toWorld(e.clientX, e.clientY);
@@ -8158,8 +8166,33 @@ const CV = (() => {
     }
     return ps[0];
   }
+  // guias de alinhamento (estilo Magnific): encaixa bordas e centros nos outros nós e mostra a linha. Alt solta o encaixe.
+  function clearGuides() { const g = $('#cvGuides'); if (g && g.firstChild) g.innerHTML = ''; }
+  function snapNode(id, x, y, w, h) {
+    const tol = 7 / cv.view.z, others = [];
+    nodesEl.querySelectorAll('.node').forEach(el => { if (el.dataset.id !== id) others.push({ x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight }); });
+    const xs = o => [o.x, o.x + o.w / 2, o.x + o.w], ys = o => [o.y, o.y + o.h / 2, o.y + o.h];
+    let bx = null, by = null;
+    for (const o of others) {
+      xs(o).forEach(t => xs({ x, w }).forEach((m, i) => { const d = t - m; if (Math.abs(d) <= tol && (!bx || Math.abs(d) < Math.abs(bx.d))) bx = { d, t, o }; }));
+      ys(o).forEach(t => ys({ y, h }).forEach((m, i) => { const d = t - m; if (Math.abs(d) <= tol && (!by || Math.abs(d) < Math.abs(by.d))) by = { d, t, o }; }));
+    }
+    if (bx) x += bx.d; if (by) y += by.d;
+    const g = $('#cvGuides'); let html = '';
+    const th = Math.max(1, 1.5 / cv.view.z), pad = 24 / cv.view.z;
+    if (bx) { const ms = [], me = [];   // todos os nós nessa mesma linha vertical
+      others.forEach(o => { if (xs(o).some(t => Math.abs(t - bx.t) < .5)) { ms.push(o.y); me.push(o.y + o.h); } });
+      const t0 = Math.min(y, ...ms) - pad, t1 = Math.max(y + h, ...me) + pad;
+      html += `<i style="left:${bx.t - th / 2}px;top:${t0}px;width:${th}px;height:${t1 - t0}px"></i>`; }
+    if (by) { const ms = [], me = [];
+      others.forEach(o => { if (ys(o).some(t => Math.abs(t - by.t) < .5)) { ms.push(o.x); me.push(o.x + o.w); } });
+      const l0 = Math.min(x, ...ms) - pad, l1 = Math.max(x + w, ...me) + pad;
+      html += `<i style="top:${by.t - th / 2}px;left:${l0}px;height:${th}px;width:${l1 - l0}px"></i>`; }
+    if (g) g.innerHTML = html;
+    return { x: Math.round(x), y: Math.round(y) };
+  }
   function onUp(e) {
-    pointers.delete(e.pointerId); if (pointers.size < 2) pinch = null;
+    pointers.delete(e.pointerId); if (pointers.size < 2) pinch = null; clearGuides();
     if (!drag) return;
     const d = drag; drag = null; el.classList.remove('panning');
     if (d.mode === 'pan' || d.mode === 'node') { save(); return; }
