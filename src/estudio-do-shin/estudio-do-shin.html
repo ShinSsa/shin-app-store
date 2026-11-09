@@ -117,6 +117,30 @@ main{margin-left:var(--sbw);padding:0 16px calc(300px + env(safe-area-inset-bott
 .vtitle .crumb{font-size:14px;color:var(--tx3);white-space:nowrap}
 .vtitle .crumb b{color:var(--tx2);font-weight:500}
 .vtitle .cnt{font-size:13px;color:var(--tx3)}
+.gtools2{display:flex;gap:6px;margin-left:auto;align-self:center}
+.gtools2 button{height:32px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg2);color:var(--tx2);font-size:12.5px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.gtools2 button:hover{color:var(--tx)}.gtools2 button.on{color:var(--tx);border-color:var(--ac)}
+.gtools2 svg{width:15px;height:15px}.gtools2 .bdg{background:var(--ac);color:#111;border-radius:9px;font-size:11px;padding:0 6px;font-weight:700}
+.gtools2 .danger{color:#ff6b6b}
+.fpop h6{margin-top:6px}.fchips{display:flex;flex-wrap:wrap;gap:6px;padding:2px 8px 8px}
+.fchips button{height:30px;padding:0 12px;border-radius:9px;background:var(--bg3);color:var(--tx2);font-size:12.5px;display:inline-flex;align-items:center;gap:6px}
+.fchips button.on{background:var(--tx);color:var(--bg)}
+.lseg{display:flex;gap:4px;padding:4px 8px 8px}.lseg button{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 6px;border-radius:10px;background:var(--bg3);color:var(--tx2);font-size:12px}
+.lseg button.on{background:var(--tx);color:var(--bg)}.lseg svg{width:18px;height:18px}
+.lsize{display:flex;align-items:center;gap:8px;padding:4px 10px 10px;font-size:12.5px;color:var(--tx2)}.lsize input{flex:1}
+.grid.sq{display:grid;grid-template-columns:repeat(var(--gc,4),1fr);gap:10px}
+.grid.sq .card{aspect-ratio:1/1!important}
+.grid.rows{display:flex;flex-direction:column;gap:14px}
+.rowi{background:var(--bg2);border:1px solid var(--line);border-radius:var(--rs);padding:12px}
+.rowi .rh{display:flex;gap:10px;align-items:center;font-size:12.5px;color:var(--tx2);margin-bottom:10px}
+.rowi .rh .rp{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tx)}
+.rowi .rh .chip{font-size:11px;padding:2px 7px;border-radius:6px;background:var(--bg3);white-space:nowrap}
+.rowi .card{height:var(--rw,240px);width:auto;max-width:100%}
+.card .stb{position:absolute;left:7px;top:34px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800;pointer-events:none;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.stb.approved{background:#2f9e44;color:#fff}.stb.rejected{background:#e03131;color:#fff}.stb.review{background:#f2c94c;color:#111}
+.stset{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.stset button{height:30px;padding:0 11px;border-radius:9px;background:var(--bg3);color:var(--tx2);font-size:12.5px;display:inline-flex;align-items:center;gap:6px}
+.stset button.on.approved{background:#2f9e44;color:#fff}.stset button.on.rejected{background:#e03131;color:#fff}.stset button.on.review{background:#f2c94c;color:#111}
 .search{flex:0 1 300px;min-width:150px;display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;
   border-radius:999px;border:1px solid var(--line);background:var(--bg2)}
 .search svg{width:15px;height:15px;color:var(--tx3);flex:none}
@@ -5033,7 +5057,7 @@ const dataURLToBlob = async d => (await fetch(d)).blob();
    e ao abrir o app ele baixa o que mudou em outros aparelhos. Sem servidor (arquivo aberto direto), nada muda. */
 const SYNC = (() => {
   const LSM = 'estudio-do-shin:sync', LSD = 'estudio-do-shin:dirty';
-  const LOCAL_CFG = ['serverUrl', 'mode', 'view', 'ctab', 'galFilter', 'mpTab', 'cvPage', 'sbMini', '_t'];
+  const LOCAL_CFG = ['serverUrl', 'mode', 'view', 'ctab', 'galFilter', 'galF', 'mpTab', 'cvPage', 'sbMini', '_t'];
   let on = false, meta = {}, dirty = {};
   try { meta = JSON.parse(localStorage.getItem(LSM) || '{}'); dirty = JSON.parse(localStorage.getItem(LSD) || '{}'); } catch {}
   const saveMeta = () => { try { localStorage.setItem(LSM, JSON.stringify(meta)); localStorage.setItem(LSD, JSON.stringify(dirty)); } catch {} };
@@ -5554,10 +5578,65 @@ function inView(o) {
   if (v.kind === 'project') return o.projectId === v.pid && (!v.fid || o.folderId === v.fid);
   return true;
 }
+const GF = () => (cfg.galF ||= {});
+const STATUS = { approved: ['Aprovada', '✓'], review: ['Revisar', '!'], rejected: ['Rejeitada', '✕'] };
+const PERIODS = [['7', 'Últimos 7 dias'], ['30', 'Último mês'], ['90', 'Últimos 3 meses'], ['180', 'Últimos 6 meses']];
+const nFilters = () => Object.values(GF()).filter(Boolean).length;
+function passF(it) {
+  const f = GF();
+  if (f.period && it.createdAt < Date.now() - Number(f.period) * 864e5) return false;
+  if (f.ratio && it.ratio !== f.ratio) return false;
+  if (f.model && it.modelLabel !== f.model) return false;
+  if (f.ref === 'with' && !(it.refs || []).length) return false;
+  if (f.ref === 'without' && (it.refs || []).length) return false;
+  if (f.status === 'none' ? it.status : f.status && it.status !== f.status) return false;
+  return true;
+}
 function visibleItems() {
   const q = state.q.trim().toLowerCase(), gf = cfg.galFilter || 'all';
-  return state.items.filter(it => inView(it) && (gf === 'all' || (gf === 'vid') === isVid(it)) && (!q || it.prompt.toLowerCase().includes(q) || (it.finalPrompt || '').toLowerCase().includes(q)));
+  return state.items.filter(it => inView(it) && (gf === 'all' || (gf === 'vid') === isVid(it)) && passF(it) && (!q || it.prompt.toLowerCase().includes(q) || (it.finalPrompt || '').toLowerCase().includes(q)));
 }
+const IC_LAYOUT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/></svg>';
+const IC_FILTER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>';
+function openLayout(anchor) {
+  const L = cfg.galLayout || 'orig', sz = cfg.galSize || 0;
+  const draw = () => `<h6>Layout das gerações</h6><div class="lseg">
+    <button data-l="row" class="${L === 'row' ? 'on' : ''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Linhas</button>
+    <button data-l="orig" class="${L === 'orig' ? 'on' : ''}"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="8" height="11" rx="1.5"/><rect x="13" y="3" width="8" height="7" rx="1.5"/><rect x="3" y="16" width="8" height="5" rx="1.5"/><rect x="13" y="12" width="8" height="9" rx="1.5"/></svg>Original</button>
+    <button data-l="square" class="${L === 'square' ? 'on' : ''}"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>Quadrado</button></div>
+    <div class="lsize">Tamanho <input type="range" min="-2" max="3" step="1" value="${-sz}" data-sz></div>`;
+  openPop(anchor, draw(), e => {
+    const b = e.target.closest('[data-l]'); if (!b) return;
+    cfg.galLayout = b.dataset.l; saveCfg(); renderGrid(); closePop();
+  }, { width: 290 });
+  const r = document.querySelector('.pop [data-sz]');
+  if (r) r.oninput = () => { cfg.galSize = -Number(r.value); saveCfg(); renderGrid(); };
+}
+function openFilters(anchor) {
+  const f = GF();
+  const base = state.items.filter(inView);
+  const uniq = k => [...new Set(base.map(i => i[k]).filter(Boolean))];
+  const chip = (k, v, l) => `<button data-fk="${k}" data-fv="${esc(v)}" class="${f[k] === v ? 'on' : ''}">${l}</button>`;
+  openPop(anchor, `<div class="fpop">
+    <h6>Status</h6><div class="fchips">${Object.entries(STATUS).map(([k, [l, ic]]) => chip('status', k, `<span class="stb ${k}" style="position:static;width:18px;height:18px;font-size:10px;box-shadow:none">${ic}</span>${l}`)).join('')}${chip('status', 'none', 'Sem status')}</div>
+    <h6>Período</h6><div class="fchips">${PERIODS.map(([v, l]) => chip('period', v, l)).join('')}</div>
+    <h6>Referências</h6><div class="fchips">${chip('ref', 'with', 'Com referência')}${chip('ref', 'without', 'Sem referência')}</div>
+    <h6>Proporção</h6><div class="fchips">${uniq('ratio').sort().map(v => chip('ratio', v, esc(v))).join('') || '<span class="hint">—</span>'}</div>
+    <h6>Modelo</h6><div class="fchips">${uniq('modelLabel').sort().map(v => chip('model', v, esc(v))).join('') || '<span class="hint">—</span>'}</div>
+    ${nFilters() ? '<div class="fchips"><button data-fclear style="background:none;color:var(--ac)">Limpar filtros</button></div>' : ''}</div>`, e => {
+    if (e.target.closest('[data-fclear]')) { cfg.galF = {}; saveCfg(); renderGrid(); closePop(); return; }
+    const b = e.target.closest('[data-fk]'); if (!b) return;
+    const k = b.dataset.fk, v = b.dataset.fv;
+    f[k] = f[k] === v ? '' : v; saveCfg(); renderGrid(); openFilters(anchor);
+  }, { width: 420 });
+}
+async function delFiltered() {
+  const list = visibleItems(); if (!list.length) return;
+  if (!confirm(`Excluir ${list.length} gerações que aparecem com estes filtros? Elas vão para a lixeira do disco.`)) return;
+  for (const it of list) { state.items = state.items.filter(x => x !== it); await DB.del('gens', it.id); dropUrl(it.id); diskTrash(it); }
+  renderGrid(); renderSidebar(); renderSpent(); toast(`${list.length} gerações excluídas.`);
+}
+async function setStatus(it, st) { it.status = it.status === st ? null : st; if (!it.status) delete it.status; await DB.put('gens', it); renderGrid(); if (state.lbIndex >= 0 && lbEl) renderLightbox(); }
 const countIn = fn => state.items.filter(fn).length;
 
 /* =========================================================
@@ -5685,7 +5764,8 @@ function renderTitle() {
   else if (v.kind === 'project') { const p = proj(v.pid); const f = folderOf(p, v.fid); h = p?.name || 'Projeto'; if (f) crumb = `<span class="crumb">/ <b>${esc(f.name)}</b></span>`; }
   const gf = cfg.galFilter || 'all', hasV = state.items.some(isVid);
   $('#vtitle').innerHTML = `<h1>${esc(h)}</h1>${crumb}<span class="cnt">${visibleItems().length}</span>
-    <div class="gfilter">${[['all', 'Tudo'], ['img', 'Imagens'], ['vid', 'Vídeos']].map(([k, l]) => `<button data-gf="${k}" class="${gf === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+    <div class="gfilter">${[['all', 'Tudo'], ['img', 'Imagens'], ['vid', 'Vídeos']].map(([k, l]) => `<button data-gf="${k}" class="${gf === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+    <div class="gtools2">${nFilters() && visibleItems().length ? `<button class="danger" data-gt="delf" title="Excluir tudo o que aparece com estes filtros">${I.trash} Excluir ${visibleItems().length}</button>` : ''}<button data-gt="layout" title="Layout">${IC_LAYOUT} Layout</button><button data-gt="filters" class="${nFilters() ? 'on' : ''}" title="Filtros">${IC_FILTER} Filtros${nFilters() ? ` <span class="bdg">${nFilters()}</span>` : ''}</button></div>`;
   // abas de pastas dentro do projeto
   const ft = $('#ftabs');
   if (v.kind === 'project' && proj(v.pid)) {
@@ -5724,9 +5804,13 @@ const jobStatusText = j => { const d = document.createElement('div'); d.innerHTM
 function renderJobsTick() { state.jobs.forEach(j => { const el = document.querySelector(`[data-jid="${j.jid}"] [data-st]`); if (el) el.innerHTML = jobStatusHTML(j); }); if (typeof CV !== 'undefined' && CV.active()) CV.tick(); if (typeof ED !== 'undefined' && ED.open && ED.s && state.jobs.some(j => j.editSession === ED.s.session)) edResults(); }
 /* galeria em colunas: cada imagem entra na coluna mais baixa, sem buracos (estilo Leonardo/Pinterest) */
 let gridCards = [];
-const gridCols = () => innerWidth >= 1650 ? 5 : innerWidth >= 1250 ? 4 : innerWidth >= 700 ? 3 : 2;
+const gridCols = () => Math.max(1, Math.min(9, (innerWidth >= 1650 ? 5 : innerWidth >= 1250 ? 4 : innerWidth >= 700 ? 3 : 2) - (cfg.galSize || 0)));
 function layoutGrid(cards = gridCards) {
   gridCards = cards;
+  const L = cfg.galLayout || 'orig', g = $('#grid');
+  g.classList.toggle('sq', L === 'square'); g.classList.toggle('rows', L === 'row');
+  if (L === 'square') { g.style.setProperty('--gc', gridCols()); g.innerHTML = cards.map(c => c.html).join(''); g.dataset.cols = gridCols(); return; }
+  if (L === 'row') { g.style.setProperty('--rw', Math.max(120, 240 - (cfg.galSize || 0) * 45) + 'px'); g.innerHTML = cards.map(c => c.row || c.html).join(''); g.dataset.cols = gridCols(); return; }
   const n = gridCols(), cols = Array.from({ length: n }, () => ({ h: 0, html: [] }));
   for (const c of cards) { const col = cols.reduce((a, b) => b.h < a.h - 0.02 ? b : a); col.html.push(c.html); col.h += c.h + 0.03; }
   $('#grid').innerHTML = cards.length ? cols.map(c => `<div class="mcol">${c.html.join('')}</div>`).join('') : '';
@@ -5746,11 +5830,13 @@ function renderGrid() {
   const showP = v.kind === 'all' || v.kind === 'fav';
   const cards = jobs.map(j => ({ h: j.status === 'error' ? 1 : (j.h / j.w) || 1, html: jobCard(j) })).concat(items.map(it => {
     const p = showP && it.projectId ? proj(it.projectId) : null;
-    return { h: (it.h / it.w) || 1, html: `<div class="card ${isVid(it) ? 'vcard' : ''}" data-id="${it.id}" style="aspect-ratio:${it.w}/${it.h}">
+    const rh = `<div class="rh"><span class="rp">${esc(it.prompt)}</span><span class="chip">${esc(it.modelLabel)}</span><span class="chip">${esc(it.ratio || '')}</span><span>${new Date(it.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</span></div>`;
+    return { h: (it.h / it.w) || 1, rh, html: `<div class="card ${isVid(it) ? 'vcard' : ''}" data-id="${it.id}" style="aspect-ratio:${it.w}/${it.h}">
       <img src="${esc(srcOf(it))}" loading="lazy" alt="">
       ${isVid(it) ? `<span class="vbadge">${ICON_PLAYF}${Math.round(it.duration || it.dur || 0)}s</span>` : ''}
       ${refThumbs(it)}
       <span class="tag">${esc(it.modelLabel)}</span>
+      ${STATUS[it.status] ? `<span class="stb ${it.status}" title="${STATUS[it.status][0]}">${STATUS[it.status][1]}</span>` : ''}
       ${p ? `<span class="ptag">${esc(p.name)}${it.folderId && folderOf(p, it.folderId) ? ' / ' + esc(folderOf(p, it.folderId).name) : ''}</span>` : ''}
       <span class="acts2"><button class="fav ${it.fav ? 'on' : ''}" data-a="fav" title="Favoritar">${it.fav ? I.heart : I.heartO}</button>
         <button class="ga" data-ga="down" title="Baixar">${I.down}</button>
@@ -5758,7 +5844,7 @@ function renderGrid() {
         ${isVid(it) ? `<button class="ga" data-ga="vtl" title="Adicionar à timeline">${I.plus}</button>` : `<button class="ga" data-ga="asRef" title="Usar como referência">${I.img}</button>`}
         <button class="ga" data-ga="more" title="Mais opções">${I.more}</button></span>
     </div>` };
-  }));
+  }).map(c => c.rh ? { ...c, row: `<div class="rowi">${c.rh}${c.html}</div>` } : c));
   layoutGrid(cards);
   const empty = !items.length && !jobs.length;
   const e = $('#empty'); e.classList.toggle('hide', !empty);
@@ -6371,6 +6457,7 @@ function renderLightbox() {
         ${it.enhanced ? `<details><summary>Prompt melhorado pela IA</summary><div>${esc(it.enhanced)}</div></details>` : ''}
         ${it.finalPrompt ? `<details><summary>Prompt enviado ao modelo</summary><div>${esc(it.finalPrompt)}</div></details>` : ''}
         ${it.neg ? `<div class="neg"><b>Negativo:</b> ${esc(it.neg)}</div>` : ''}</div>
+      <div class="sec"><h5>Status</h5><div class="stset">${Object.entries(STATUS).map(([k, [l, ic]]) => `<button data-a="st" data-st="${k}" class="${k} ${it.status === k ? 'on' : ''}">${ic} ${l}</button>`).join('')}</div></div>
       <div class="sec"><h5>Detalhes</h5>
         <dl class="dl">
           <dt>Projeto</dt><dd>${p ? esc(p.name) + (f ? ' / ' + esc(f.name) : '') : 'Sem projeto'}</dd>
@@ -6435,6 +6522,7 @@ async function lbClick(e) {
     case 'move': moveMenu(b, it); break;
     case 'toEl': openElementForm(null, { blob: it.blob, url: it.url, projectId: it.projectId }); break;
     case 'del': await removeItem(it); break;
+    case 'st': await setStatus(it, b.dataset.st); break;
     case 'reveal': diskReveal(it.disk); break;
   }
 }
@@ -9626,7 +9714,7 @@ addEventListener('resize', setHH);
   startBridge();
   setCtab(cfg.ctab || 'img');
   /* filtro Tudo / Imagens / Vídeos */
-  $('#vtitle').addEventListener('click', e => { const b = e.target.closest('[data-gf]'); if (!b) return; cfg.galFilter = b.dataset.gf; saveCfg(); renderGrid(); });
+  $('#vtitle').addEventListener('click', e => { const t = e.target.closest('[data-gt]'); if (t) { if (t.dataset.gt === 'layout') openLayout(t); if (t.dataset.gt === 'filters') openFilters(t); if (t.dataset.gt === 'delf') delFiltered(); return; } const b = e.target.closest('[data-gf]'); if (!b) return; cfg.galFilter = b.dataset.gf; saveCfg(); renderGrid(); });
   /* prévia: o vídeo toca ao passar o mouse */
   let hovT = null;
   $('#grid').addEventListener('mouseover', e => {
