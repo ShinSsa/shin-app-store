@@ -5627,7 +5627,7 @@ function openFilters(anchor) {
     if (e.target.closest('[data-fclear]')) { cfg.galF = {}; saveCfg(); renderGrid(); closePop(); return; }
     const b = e.target.closest('[data-fk]'); if (!b) return;
     const k = b.dataset.fk, v = b.dataset.fv;
-    f[k] = f[k] === v ? '' : v; saveCfg(); renderGrid(); openFilters(anchor);
+    f[k] = f[k] === v ? '' : v; saveCfg(); renderGrid(); openFilters(document.querySelector('[data-gt="filters"]') || anchor);
   }, { width: 420 });
 }
 async function delFiltered() {
