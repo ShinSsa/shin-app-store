@@ -7321,7 +7321,8 @@ const CV = (() => {
     const tools = s ? `<div class="ntools">${runnable ? `<button data-a="run" title="Rodar">${ICON_PLAY} Rodar</button><button data-a="chain" title="Rodar este e os nós ligados depois dele">${ICON_CHAIN}</button><i></i>` : ''}
       ${n.data.prompt !== undefined || n.type === 'text' || n.type === 'assist' ? `<button data-a="ped" title="Editor de prompt (tela grande)">${sm('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M8 9h5M8 13h8M8 17h6"/><path d="m18.5 2.5 3 3L15 12h-3V9z"/></svg>')}</button>` : ''}
       ${(runnable && n.type !== 'video' && outItem(n)) || (n.type === 'image' && n.data.data) ? `<button data-a="edit" title="Editar imagem (pintar e explicar)">${sm(ICON_BRUSH)} Editar</button>` : ''}
-      ${n.type === 'gen' ? `<button data-a="toBar" title="Levar para a barra da galeria">${I.pen}</button>` : ''}
+      ${outItem(n) ? `<button data-a="down" title="Baixar resultado">${I.down}</button>` : ''}
+      ${n.type === 'gen' ? `<button data-a="toBar" title="Mandar prompt e ajustes para a barra da Galeria">${sm('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M12 3v8M8.5 7.5 12 11l3.5-3.5"/></svg>')}</button>` : ''}
       <button data-a="del" class="danger" title="Excluir">${I.trash}</button><button data-a="more" title="Mais opções">•••</button></div>` : '';
     return `<div class="node t-${n.type} ${s ? 'sel' : ''}" data-id="${n.id}" style="left:${n.x}px;top:${n.y}px;width:${nodeW(n)}px;${n.type === 'note' ? `--note:${NOTE_COLORS[n.data.color] || NOTE_COLORS.yellow}` : ''}">
       <div class="nh" data-drag>${T.icon}<span>${esc(n.title)}</span></div>${tools}
@@ -7954,6 +7955,7 @@ const CV = (() => {
       case 'dup': dupNode(n); break;
       case 'edit': if (n.type === 'image') openEditor({ data: n.data.data }); else openEditor({ item: outItem(n), nodeId: n.id }); break;
       case 'del': delNode(n.id); break;
+      case 'down': { const it = outItem(n); if (it) download(it); break; }
       case 'toBar': ta.value = d.prompt; Object.assign(cfg.sel, { provider: d.provider, model: d.model, ratio: d.ratio, res: d.res }); cfg.mode = 'gal'; saveCfg(); applyMode(); updateComposer(); autoSize(); toast('Prompt e configurações levados para a barra.'); break;
       case 'qm': d.qty = Math.max(1, d.qty - 1); save(); rerenderNode(n); break;
       case 'qp': d.qty = Math.min(4, d.qty + 1); save(); rerenderNode(n); break;
