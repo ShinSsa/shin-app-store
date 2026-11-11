@@ -4,7 +4,7 @@ name: PromptArt
 tagline: Seus prompts de IA organizados em cards com a foto do resultado
 icon: https://raw.githubusercontent.com/ShinSsa/shin-app-store/master/assets/promptart.png
 category: ai
-version: "1.0.0"
+version: "1.0.1"
 port: 8798
 description: >-
   Versão pessoal do PromptArt, só para você, rodando no seu Umbrel. Guarde
@@ -26,7 +26,7 @@ repo: https://github.com/ShinSsa/shin-app-store
 support: https://github.com/ShinSsa/shin-app-store/issues
 gallery: []
 releaseNotes: >-
-  Primeira versão pessoal do PromptArt.
+  No celular, o botão redondo do menu volta a abrir o painel lateral (gerador, categorias).
 dependencies: []
 path: "/app"
 defaultUsername: ""

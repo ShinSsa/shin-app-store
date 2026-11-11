@@ -759,8 +759,20 @@
 /* O painel do celular não é modal novo: é a coluna lateral do computador
    trazida para cima da tela pelo mobile.css. Aqui só ligamos e desligamos
    a classe — nada do app.js precisa saber que isso existe. */
-function alternarPainelMobile(){ document.body.classList.toggle('painel-aberto'); }
-function fecharPainelMobile(){ document.body.classList.remove('painel-aberto'); }
+/* Além de painel-aberto, marca QUAL painel abrir (painel-cat/rank/gen):
+   o mobile.css não depende só do :has(), que alguns Safari de iPhone não
+   reavaliam quando a classe do body muda — o botão "não fazia nada". */
+var PAINEL_DA_TELA = { homePage: 'painel-cat', communityPage: 'painel-rank', generatorPage: 'painel-gen' };
+function alternarPainelMobile(){
+  var b = document.body, abrir = !b.classList.contains('painel-aberto');
+  b.classList.remove('painel-cat', 'painel-rank', 'painel-gen');
+  if (abrir) {
+    var tela = document.querySelector('#homePage.active, #communityPage.active, #generatorPage.active');
+    if (tela) b.classList.add(PAINEL_DA_TELA[tela.id]);
+  }
+  b.classList.toggle('painel-aberto', abrir);
+}
+function fecharPainelMobile(){ document.body.classList.remove('painel-aberto', 'painel-cat', 'painel-rank', 'painel-gen'); }
 
 /* escolher uma categoria (ou um bloco do gerador) fecha o painel sozinho:
    senão a pessoa escolhe e continua olhando para a folha */

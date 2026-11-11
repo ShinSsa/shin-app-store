@@ -326,7 +326,10 @@ body.painel-aberto #painelFundo{opacity:1;pointer-events:auto;}
   overflow:hidden;visibility:hidden;}
 body.painel-aberto:has(#homePage.active) .cat-column,
 body.painel-aberto:has(#communityPage.active) .rank-column,
-body.painel-aberto:has(#generatorPage.active) .gen-rail{transform:translateX(0);visibility:visible;}
+body.painel-aberto:has(#generatorPage.active) .gen-rail,
+body.painel-aberto.painel-cat .cat-column,
+body.painel-aberto.painel-rank .rank-column,
+body.painel-aberto.painel-gen .gen-rail{transform:translateX(0);visibility:visible;}
 
 /* painel de categorias */
 .cat-column{padding:14px 12px 0;}

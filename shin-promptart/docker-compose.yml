@@ -8,7 +8,7 @@ services:
       APP_PORT: 8798
 
   web:
-    image: ghcr.io/shinssa/promptart:1.0.0
+    image: ghcr.io/shinssa/promptart:1.0.1
     # começa como root só para preparar /data; o PHP roda como 1000 (o usuário do Umbrel)
     init: true
     restart: on-failure
