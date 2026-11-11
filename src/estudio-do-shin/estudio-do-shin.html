@@ -6064,10 +6064,17 @@ function generate() {
 }
 
 /* ---------- popovers ---------- */
-let popEl = null;
-function closePop() { if (popEl) { popEl.remove(); popEl = null; document.removeEventListener('pointerdown', outside); } }
+let popEl = null, popAnchor = null;
+function closePop() { if (popEl) { popEl.remove(); popEl = null; popAnchor = null; document.removeEventListener('pointerdown', outside); } }
+/* clicar de novo no mesmo botão fecha o menu (antes: o pointerdown fechava e o click reabria) */
+function engoleProximoClique(el) {
+  const f = ev => { ev.stopImmediatePropagation(); ev.preventDefault(); };
+  el.addEventListener('click', f, { capture: true, once: true });
+  setTimeout(() => el.removeEventListener('click', f, { capture: true }), 700);
+}
 function openPop(anchor, html, onClick, opts = {}) {
   closePop();
+  popAnchor = anchor || null;
   popEl = document.createElement('div'); popEl.className = 'pop'; popEl.innerHTML = html;
   if (opts.width) popEl.style.width = Math.min(opts.width, innerWidth - 16) + 'px';
   popEl.style.maxWidth = (innerWidth - 16) + 'px';
@@ -6117,7 +6124,12 @@ function popSearch(pop) {
   });
   setTimeout(() => inp.focus(), 20);
 }
-function outside(e) { if (popEl && !popEl.contains(e.target) && e.target !== ta) closePop(); }
+function outside(e) {
+  if (!popEl || popEl.contains(e.target) || e.target === ta) return;
+  const a = popAnchor;
+  closePop();
+  if (a && a.contains && a.contains(e.target)) engoleProximoClique(a);
+}
 const sm = svg => svg.replace('<svg', '<svg width="16" height="16"');
 
 /* ---------- seletor de modelos: abas (favoritos, recentes, mais usados, por API) + busca ---------- */

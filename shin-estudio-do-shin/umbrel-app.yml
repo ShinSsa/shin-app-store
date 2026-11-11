@@ -4,7 +4,7 @@ name: Estúdio do Shin
 tagline: Estúdio de imagens e vídeos com IA, com canvas de nós
 icon: https://raw.githubusercontent.com/ShinSsa/shin-app-store/master/assets/estudio-do-shin.png
 category: ai
-version: "1.0.17"
+version: "1.0.18"
 port: 8787
 description: >-
   Estúdio pessoal de geração de imagens e vídeos com IA: galeria, projetos,
@@ -23,7 +23,7 @@ repo: https://github.com/ShinSsa/shin-app-store
 support: https://github.com/ShinSsa/shin-app-store/issues
 gallery: []
 releaseNotes: >-
-  Backup em ZIP (só o novo, liberar espaço, importar sem duplicar) e suporte a rodar numa subpasta de um site.
+  Clicar de novo no botão de um menu (modelo, proporção, resolução, cores…) agora fecha o menu.
 dependencies: []
 path: ""
 defaultUsername: ""
