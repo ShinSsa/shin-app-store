@@ -118,6 +118,22 @@ main{margin-left:var(--sbw);padding:0 16px calc(300px + env(safe-area-inset-bott
 .vtitle .crumb b{color:var(--tx2);font-weight:500}
 .vtitle .cnt{font-size:13px;color:var(--tx3)}
 .gtools2{display:flex;gap:6px;margin-left:auto;align-self:center}
+.gselbar{position:sticky;top:8px;z-index:30;display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 12px;padding:8px;border-radius:16px;background:var(--glass,var(--bg2));-webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4);border:1px solid var(--ac);box-shadow:0 10px 30px var(--shadow)}
+.gselbar[hidden]{display:none}
+.gselbar .n{font-weight:700;font-size:13.5px;padding:0 8px;min-width:118px}
+.gselbar button{height:34px;padding:0 13px;border-radius:10px;background:var(--bg3);color:var(--tx);font-size:13px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.gselbar button svg{width:15px;height:15px}
+.gselbar button:hover{filter:brightness(1.15)}
+.gselbar button[disabled]{opacity:.4;pointer-events:none}
+.gselbar .danger{color:#ff6b6b}
+.gselbar .sp{flex:1}
+.card .gpick{position:absolute;left:8px;top:8px;width:26px;height:26px;border-radius:50%;border:2px solid #fff;background:rgba(0,0,0,.35);display:grid;place-items:center;z-index:3;box-shadow:0 1px 4px rgba(0,0,0,.5);pointer-events:none}
+.card .gpick svg{width:14px;height:14px;min-height:14px;opacity:0;color:#111;display:block}
+.card.picked .gpick{background:var(--ac);border-color:var(--ac)}.card.picked .gpick svg{opacity:1}
+.grid.selmode .card .tag,.grid.selmode .card .stb{transform:translateX(30px)}
+.grid.selmode .card .acts2{display:none}
+.grid.selmode .card{cursor:pointer}
+.card.picked{outline:3px solid var(--ac);outline-offset:-3px}
 .gtools2 button{height:32px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg2);color:var(--tx2);font-size:12.5px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
 .gtools2 button:hover{color:var(--tx)}.gtools2 button.on{color:var(--tx);border-color:var(--ac)}
 .gtools2 svg{width:15px;height:15px}.gtools2 .bdg{background:var(--ac);color:#111;border-radius:9px;font-size:11px;padding:0 6px;font-weight:700}
@@ -952,6 +968,7 @@ header .chip.btn:hover,header .iconbtn:hover{background:var(--glassBtnH)}
 <main>
   <div class="toolbar">
     <div class="vtitle" id="vtitle"></div>
+    <div class="gselbar" id="gselBar" hidden></div>
     <div class="ftabs hide" id="ftabs"></div>
   </div>
   <div class="grid" id="grid"></div>
@@ -5582,6 +5599,78 @@ function inView(o) {
   return true;
 }
 const GF = () => (cfg.galF ||= {});
+// ---- seleção de várias gerações na Galeria ----
+const SEL = { on: false, ids: new Set(), last: null };
+const IC_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const IC_SELECT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></svg>';
+function selItems() { return state.items.filter(i => SEL.ids.has(i.id)); }
+function selEnter() { SEL.on = true; SEL.ids.clear(); SEL.last = null; renderGrid(); }
+function selExit() { SEL.on = false; SEL.ids.clear(); SEL.last = null; closePop(); renderGrid(); }
+function renderSelBar() {
+  const bar = $('#gselBar'); if (!bar) return;
+  if (!SEL.on || cfg.mode === 'canvas') { bar.hidden = true; return; }
+  const n = SEL.ids.size, vis = visibleItems(), all = vis.length && vis.every(i => SEL.ids.has(i.id)), sel = selItems(), allFav = sel.length && sel.every(i => i.fav), d = n ? '' : 'disabled';
+  bar.hidden = false;
+  bar.innerHTML = `<span class="n">${n} selecionada${n === 1 ? '' : 's'}</span>
+    <button data-s="all">${all ? 'Limpar seleção' : `Selecionar todas (${vis.length})`}</button>
+    <button data-s="move" ${d}>${sm(I.folder)} Mover para…</button>
+    <button data-s="fav" ${d}>${allFav ? I.heart : I.heartO} ${allFav ? 'Desfavoritar' : 'Favoritar'}</button>
+    <button data-s="status" ${d}>${IC_SELECT} Status</button>
+    <button data-s="down" ${d}>${I.down} Baixar</button>
+    <button data-s="del" class="danger" ${d}>${I.trash} Apagar</button>
+    <span class="sp"></span><button data-s="cancel">Cancelar</button>`;
+}
+function selToggle(it, range) {
+  const vis = visibleItems();
+  if (range && SEL.last) { const a = vis.findIndex(i => i.id === SEL.last), b = vis.findIndex(i => i.id === it.id); if (a >= 0 && b >= 0) { const [x, y] = a < b ? [a, b] : [b, a]; for (let k = x; k <= y; k++) SEL.ids.add(vis[k].id); } }
+  else SEL.ids.has(it.id) ? SEL.ids.delete(it.id) : SEL.ids.add(it.id);
+  SEL.last = it.id;
+  document.querySelectorAll('#grid .card[data-id]').forEach(c => c.classList.toggle('picked', SEL.ids.has(c.dataset.id)));
+  renderSelBar();
+}
+async function selAction(a, btn) {
+  const list = selItems();
+  if (a === 'cancel') return selExit();
+  if (a === 'all') { const vis = visibleItems(); if (vis.length && vis.every(i => SEL.ids.has(i.id))) SEL.ids.clear(); else vis.forEach(i => SEL.ids.add(i.id)); renderGrid(); return; }
+  if (!list.length) return;
+  if (a === 'fav') { const v = !list.every(i => i.fav); for (const it of list) { it.fav = v; await DB.put('gens', it); } renderGrid(); renderSidebar(); toast(`${list.length} ${v ? 'favoritadas' : 'desfavoritadas'}.`); }
+  if (a === 'status') openPop(btn, `<h6>Status das ${list.length} selecionadas</h6>${Object.entries(STATUS).map(([k, [l, ic]]) => `<button class="opt" data-st="${k}"><span class="stb ${k}" style="position:static;width:18px;height:18px;font-size:10px;box-shadow:none">${ic}</span> ${l}</button>`).join('')}<button class="opt" data-st="">Sem status</button>`, async ev => {
+    const o = ev.target.closest('[data-st]'); if (!o) return; closePop();
+    for (const it of list) { if (o.dataset.st) it.status = o.dataset.st; else delete it.status; await DB.put('gens', it); }
+    renderGrid(); toast('Status atualizado.');
+  }, { width: 240 });
+  if (a === 'move') {
+    const projs = [...state.projects].sort((x, y) => x.name.localeCompare(y.name, 'pt-BR'));
+    openPop(btn, `<h6>Mover ${list.length} para</h6><button class="opt" data-p="">${sm(I.inbox)} Sem projeto</button>` + projs.map(p => `<button class="opt" data-p="${p.id}">${sm(I.proj)} ${esc(p.name)}</button>` + (p.folders || []).map(f => `<button class="opt ind" data-p="${p.id}" data-f="${f.id}">${sm(I.folder)} ${esc(f.name)}</button>`).join('')).join(''), async ev => {
+      const o = ev.target.closest('.opt'); if (!o) return; closePop();
+      for (const it of list) { it.projectId = o.dataset.p || null; it.folderId = o.dataset.f || null; await DB.put('gens', it); diskMove(it); }
+      SEL.ids.clear(); renderGrid(); renderSidebar(); toast(`${list.length} movidas.`);
+    }, { width: 260 });
+  }
+  if (a === 'down') {
+    if (list.length <= 3) { for (const it of list) { await download(it); await new Promise(r => setTimeout(r, 400)); } return; }
+    toast(`Juntando ${list.length} arquivos num ZIP…`);
+    const files = []; const used = new Set();
+    for (const it of list) { const b = it.blob || (it.url ? await urlToBlob(it.url) : null); if (!b) continue; let nm = (it.prompt || 'geracao').slice(0, 40).replace(/[^\wÀ-ú -]+/g, '').trim().replace(/\s+/g, '-') || 'geracao'; let f = `${nm}.${extOf(b)}`, k = 2; while (used.has(f)) f = `${nm}-${k++}.${extOf(b)}`; used.add(f); files.push({ name: f, data: b }); }
+    const zip = await zipBuild(files); const aEl = document.createElement('a'); aEl.href = URL.createObjectURL(zip); aEl.download = `estudio-do-shin-${files.length}-arquivos.zip`; document.body.appendChild(aEl); aEl.click(); aEl.remove(); setTimeout(() => URL.revokeObjectURL(aEl.href), 60000);
+  }
+  if (a === 'del') {
+    if (!confirm(`Apagar ${list.length} gerações?`)) return;
+    const ids = new Set(list.map(i => i.id));
+    state.items = state.items.filter(i => !ids.has(i.id));
+    for (const it of list) await DB.del('gens', it.id);
+    SEL.ids.clear(); renderGrid(); renderSidebar(); renderSpent();
+    toast(`${list.length} apagadas.`, 'Desfazer', async () => { for (const it of list) { await DB.put('gens', it); state.items.push(it); } state.items.sort((x, y) => y.createdAt - x.createdAt); renderGrid(); renderSidebar(); renderSpent(); }, 7000);
+    setTimeout(() => list.forEach(it => { if (!state.items.includes(it)) { dropUrl(it.id); diskTrash(it); } }), 8000);
+  }
+}
+document.addEventListener('click', e => { const b = e.target.closest('#gselBar [data-s]'); if (b) selAction(b.dataset.s, b); });
+document.addEventListener('keydown', e => {
+  if (!SEL.on || cfg.mode === 'canvas' || /INPUT|TEXTAREA/.test(document.activeElement?.tagName) || document.querySelector('.lb,.modal')) return;
+  if (e.key === 'Escape') { e.preventDefault(); selExit(); }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); visibleItems().forEach(i => SEL.ids.add(i.id)); renderGrid(); }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && SEL.ids.size) { e.preventDefault(); selAction('del'); }
+});
 const STATUS = { approved: ['Aprovada', '✓'], review: ['Revisar', '!'], rejected: ['Rejeitada', '✕'] };
 const PERIODS = [['7', 'Últimos 7 dias'], ['30', 'Último mês'], ['90', 'Últimos 3 meses'], ['180', 'Últimos 6 meses']];
 const nFilters = () => Object.values(GF()).filter(Boolean).length;
@@ -5768,7 +5857,7 @@ function renderTitle() {
   const gf = cfg.galFilter || 'all', hasV = state.items.some(isVid);
   $('#vtitle').innerHTML = `<h1>${esc(h)}</h1>${crumb}<span class="cnt">${visibleItems().length}</span>
     <div class="gfilter">${[['all', 'Tudo'], ['img', 'Imagens'], ['vid', 'Vídeos']].map(([k, l]) => `<button data-gf="${k}" class="${gf === k ? 'on' : ''}">${l}</button>`).join('')}</div>
-    <div class="gtools2">${nFilters() && visibleItems().length ? `<button class="danger" data-gt="delf" title="Excluir tudo o que aparece com estes filtros">${I.trash} Excluir ${visibleItems().length}</button>` : ''}<button data-gt="layout" title="Layout">${IC_LAYOUT} Layout</button><button data-gt="filters" class="${nFilters() ? 'on' : ''}" title="Filtros">${IC_FILTER} Filtros${nFilters() ? ` <span class="bdg">${nFilters()}</span>` : ''}</button></div>`;
+    <div class="gtools2">${nFilters() && visibleItems().length ? `<button class="danger" data-gt="delf" title="Excluir tudo o que aparece com estes filtros">${I.trash} Excluir ${visibleItems().length}</button>` : ''}<button data-gt="sel" class="${SEL.on ? 'on' : ''}" title="Selecionar várias">${IC_SELECT} Selecionar</button><button data-gt="layout" title="Layout">${IC_LAYOUT} Layout</button><button data-gt="filters" class="${nFilters() ? 'on' : ''}" title="Filtros">${IC_FILTER} Filtros${nFilters() ? ` <span class="bdg">${nFilters()}</span>` : ''}</button></div>`;
   // abas de pastas dentro do projeto
   const ft = $('#ftabs');
   if (v.kind === 'project' && proj(v.pid)) {
@@ -5811,6 +5900,7 @@ const gridCols = () => Math.max(1, Math.min(9, (innerWidth >= 1650 ? 5 : innerWi
 function layoutGrid(cards = gridCards) {
   gridCards = cards;
   const L = cfg.galLayout || 'orig', g = $('#grid');
+  g.classList.toggle('selmode', SEL.on); renderSelBar();
   g.classList.toggle('sq', L === 'square'); g.classList.toggle('rows', L === 'row');
   if (L === 'square') { g.style.setProperty('--gc', gridCols()); g.innerHTML = cards.map(c => c.html).join(''); g.dataset.cols = gridCols(); return; }
   if (L === 'row') { g.style.setProperty('--rw', Math.max(120, 240 - (cfg.galSize || 0) * 45) + 'px'); g.innerHTML = cards.map(c => c.row || c.html).join(''); g.dataset.cols = gridCols(); return; }
@@ -5834,7 +5924,7 @@ function renderGrid() {
   const cards = jobs.map(j => ({ h: j.status === 'error' ? 1 : (j.h / j.w) || 1, html: jobCard(j) })).concat(items.map(it => {
     const p = showP && it.projectId ? proj(it.projectId) : null;
     const rh = `<div class="rh"><span class="rp">${esc(it.prompt)}</span><span class="chip">${esc(it.modelLabel)}</span><span class="chip">${esc(it.ratio || '')}</span><span>${new Date(it.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</span></div>`;
-    return { h: (it.h / it.w) || 1, rh, html: `<div class="card ${isVid(it) ? 'vcard' : ''}" data-id="${it.id}" style="aspect-ratio:${it.w}/${it.h}">
+    return { h: (it.h / it.w) || 1, rh, html: `<div class="card ${isVid(it) ? 'vcard' : ''} ${SEL.on && SEL.ids.has(it.id) ? 'picked' : ''}" data-id="${it.id}" style="aspect-ratio:${it.w}/${it.h}">${SEL.on ? `<span class="gpick">${IC_CHECK}</span>` : ''}
       <img src="${esc(srcOf(it))}" loading="lazy" alt="">
       ${isVid(it) ? `<span class="vbadge">${ICON_PLAYF}${Math.round(it.duration || it.dur || 0)}s</span>` : ''}
       ${refThumbs(it)}
@@ -6064,17 +6154,10 @@ function generate() {
 }
 
 /* ---------- popovers ---------- */
-let popEl = null, popAnchor = null;
-function closePop() { if (popEl) { popEl.remove(); popEl = null; popAnchor = null; document.removeEventListener('pointerdown', outside); } }
-/* clicar de novo no mesmo botão fecha o menu (antes: o pointerdown fechava e o click reabria) */
-function engoleProximoClique(el) {
-  const f = ev => { ev.stopImmediatePropagation(); ev.preventDefault(); };
-  el.addEventListener('click', f, { capture: true, once: true });
-  setTimeout(() => el.removeEventListener('click', f, { capture: true }), 700);
-}
+let popEl = null;
+function closePop() { if (popEl) { popEl.remove(); popEl = null; document.removeEventListener('pointerdown', outside); } }
 function openPop(anchor, html, onClick, opts = {}) {
   closePop();
-  popAnchor = anchor || null;
   popEl = document.createElement('div'); popEl.className = 'pop'; popEl.innerHTML = html;
   if (opts.width) popEl.style.width = Math.min(opts.width, innerWidth - 16) + 'px';
   popEl.style.maxWidth = (innerWidth - 16) + 'px';
@@ -6124,12 +6207,7 @@ function popSearch(pop) {
   });
   setTimeout(() => inp.focus(), 20);
 }
-function outside(e) {
-  if (!popEl || popEl.contains(e.target) || e.target === ta) return;
-  const a = popAnchor;
-  closePop();
-  if (a && a.contains && a.contains(e.target)) engoleProximoClique(a);
-}
+function outside(e) { if (popEl && !popEl.contains(e.target) && e.target !== ta) closePop(); }
 const sm = svg => svg.replace('<svg', '<svg width="16" height="16"');
 
 /* ---------- seletor de modelos: abas (favoritos, recentes, mais usados, por API) + busca ---------- */
@@ -6428,6 +6506,7 @@ $('#grid').addEventListener('click', async e => {
   }
   const c = e.target.closest('.card[data-id]'); if (!c) return;
   const it = state.items.find(x => x.id === c.dataset.id); if (!it) return;
+  if (SEL.on) { e.preventDefault(); selToggle(it, e.shiftKey); return; }
   if (e.target.closest('[data-a="fav"]')) { await toggleFav(it); return; }
   const ga = e.target.closest('[data-ga]')?.dataset.ga;
   if (ga === 'down') return download(it);
@@ -9859,7 +9938,7 @@ addEventListener('resize', setHH);
   startBridge();
   setCtab(cfg.ctab || 'img');
   /* filtro Tudo / Imagens / Vídeos */
-  $('#vtitle').addEventListener('click', e => { const t = e.target.closest('[data-gt]'); if (t) { if (t.dataset.gt === 'layout') openLayout(t); if (t.dataset.gt === 'filters') openFilters(t); if (t.dataset.gt === 'delf') delFiltered(); return; } const b = e.target.closest('[data-gf]'); if (!b) return; cfg.galFilter = b.dataset.gf; saveCfg(); renderGrid(); });
+  $('#vtitle').addEventListener('click', e => { const t = e.target.closest('[data-gt]'); if (t) { if (t.dataset.gt === 'sel') { SEL.on ? selExit() : selEnter(); return; } if (t.dataset.gt === 'layout') openLayout(t); if (t.dataset.gt === 'filters') openFilters(t); if (t.dataset.gt === 'delf') delFiltered(); return; } const b = e.target.closest('[data-gf]'); if (!b) return; cfg.galFilter = b.dataset.gf; saveCfg(); renderGrid(); });
   /* prévia: o vídeo toca ao passar o mouse */
   let hovT = null;
   $('#grid').addEventListener('mouseover', e => {

@@ -23,7 +23,7 @@ repo: https://github.com/ShinSsa/shin-app-store
 support: https://github.com/ShinSsa/shin-app-store/issues
 gallery: []
 releaseNotes: >-
-  Clicar de novo no botão de um menu (modelo, proporção, resolução, cores…) agora fecha o menu.
+  Galeria: selecionar várias gerações para mover, favoritar, mudar status, baixar em ZIP ou apagar de uma vez.
 dependencies: []
 path: ""
 defaultUsername: ""
