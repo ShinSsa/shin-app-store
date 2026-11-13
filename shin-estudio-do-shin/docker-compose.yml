@@ -10,7 +10,7 @@ services:
       PROXY_AUTH_WHITELIST: "/api/mcp"
 
   web:
-    image: ghcr.io/shinssa/estudio-do-shin:1.0.20
+    image: ghcr.io/shinssa/estudio-do-shin:1.0.21
     user: "1000:1000"
     init: true
     restart: on-failure

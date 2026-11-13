@@ -151,6 +151,21 @@ main{margin-left:var(--sbw);padding:0 16px calc(300px + env(safe-area-inset-bott
 .calc .cmp b{font-size:17px}
 .calc .warn{color:#ffb347}.calc .ok{color:#51cf66}
 .calc .hint{font-size:11.5px;color:var(--tx3);line-height:1.45}
+.calc .stchips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.calc .stchips button{height:30px;padding:0 12px;border-radius:9px;background:var(--bg3);color:var(--tx2);font-size:12.5px;display:inline-flex;align-items:center;gap:6px}
+.calc .stchips button i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.calc .stchips button.on{background:var(--c);color:#111;font-weight:700}.calc .stchips button.on i{background:#111}
+.calc .kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px}
+@media(max-width:820px){.calc .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.calc .kpi{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.calc .kpi small{display:block;color:var(--tx3);font-size:11.5px}.calc .kpi b{display:block;font-size:22px;letter-spacing:-.01em;margin:2px 0}
+.calc .kpi span{font-size:11.5px;color:var(--tx2)}
+.calc table.pl{width:100%;border-collapse:collapse;font-size:12.5px}
+.calc table.pl th{text-align:left;color:var(--tx3);font-weight:500;font-size:11px;padding:6px 6px;border-bottom:1px solid var(--line)}
+.calc table.pl td{padding:8px 6px;border-bottom:1px solid var(--line)}.calc table.pl td.r,.calc table.pl th.r{text-align:right;font-variant-numeric:tabular-nums}
+.calc table.pl tr{cursor:pointer}.calc table.pl tr:hover td{background:var(--bg3)}
+.calc .chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:2px 8px;border-radius:7px;background:color-mix(in srgb,var(--c) 22%,transparent);color:var(--tx)}
+.calc .chip i{width:7px;height:7px;border-radius:50%;background:var(--c)}
 .gselbar{position:sticky;top:8px;z-index:30;display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 12px;padding:8px;border-radius:16px;background:var(--glass,var(--bg2));-webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4);border:1px solid var(--ac);box-shadow:0 10px 30px var(--shadow)}
 .gselbar[hidden]{display:none}
 .gselbar .n{font-weight:700;font-size:13.5px;padding:0 8px;min-width:118px}
@@ -5675,6 +5690,17 @@ function calcResult(pid) {
   const planImgs = B.imgs.reduce((s, l) => s + num(l.qty), 0), planVids = B.vids.reduce((s, l) => s + num(l.qty), 0);
   return { mode: B0.mode || 'full', rate, rateLabor, rateOver, equipM, fixedM, labor, overhead, ai, aiPlan, extras, cost, profit, fees, price, realAi, realImgs, realVids, planImgs, planVids, h };
 }
+const BST = { orcando: ['Orçando', '#8a93a3'], fechado: ['Fechado', '#4dabf7'], pago: ['Pago', '#51cf66'], atrasado: ['Atrasado', '#ffa94d'], cancelado: ['Cancelado', '#ff6b6b'] };
+const todayISO = () => new Date(Date.now() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
+function budgetOf(p) { return p?.budget || null; }
+function bStatus(B) { const st = B?.status || 'orcando'; return st === 'fechado' && B.due && B.due < todayISO() ? 'vencido' : st; }
+function chargedOf(pid) {   // valor que ele cobrou de fato: o digitado, ou o sugerido com o desconto
+  const B = calcBudget(pid), r = calcResult(pid);
+  const disc = Math.min(100, Math.max(0, num(B.discPct)));
+  const auto = r.price * (1 - disc / 100);
+  return { value: String(B.charged ?? '').trim() !== '' ? num(B.charged) : auto, auto, disc, typed: String(B.charged ?? '').trim() !== '', price: r.price, r };
+}
+function overdueProjects() { return state.projects.filter(p => { const B = budgetOf(p); return B && (B.status === 'atrasado' || bStatus(B) === 'vencido'); }); }
 let calcTab = 'proj', calcPid = null;
 function openCalc(pid = null) {
   calcPid = pid && proj(pid) ? pid : null; calcTab = calcPid ? 'proj' : (cfg.calc ? 'proj' : 'me');
@@ -5689,6 +5715,8 @@ function openCalc(pid = null) {
     if (a === 'close') return m.remove();
     if (a === 'tab') { calcTab = b.dataset.t; return drawCalc(); }
     if (a === 'proj') return;
+    if (a === 'bst') { B.status = b.dataset.s; if (b.dataset.s === 'pago' && !B.paidAt) B.paidAt = Date.now(); calcSave(); return drawCalc(); }
+    if (a === 'open') { calcPid = b.dataset.p; calcTab = 'proj'; return drawCalc(); }
     if (a === 'bmode') { B.mode = b.dataset.m; if (B.mode === 'full' && !B.imgs.length && num(B.nImgs)) B.imgs.push({ m: `${cfg.sel?.provider}|${cfg.sel?.model}`, res: cfg.sel?.res || '1K', qty: B.nImgs }); if (B.mode === 'full' && !B.vids.length && num(B.nVids)) B.vids.push({ m: VEO_MODELS[0].id, secs: 8, qty: B.nVids }); calcSave(); return drawCalc(); }
     if (a === 'add') { const list = b.dataset.l;
       if (list === 'equip') C.equip.push({ name: '', value: 0, months: 36 });
@@ -5710,6 +5738,40 @@ function openCalc(pid = null) {
   m.addEventListener('change', e => { if (e.target.dataset.c === 'proj') { calcPid = e.target.value || null; drawCalc(); }  });
   drawCalc();
 }
+function dashHTML() {
+  const rows = state.projects.filter(p => p.budget).map(p => {
+    const B = p.budget, ch = chargedOf(p.id), r = ch.r, st = bStatus(B);
+    const hrs = num(B.realHours) || num(B.hours);
+    const fees = ch.value * Math.min(.9, (num(CALC().feePct) + num(CALC().taxPct)) / 100);
+    const profit = ch.value - fees - r.realAi - r.extras - (r.rateLabor + r.rateOver) * hrs;   // o que sobra além do seu salário
+    return { p, B, ch, r, st, profit };
+  });
+  if (!rows.length) return `<div class="sec"><div class="hint">Ainda não há orçamentos. Abra a aba <b>Projeto</b>, escolha um projeto e preencha as horas e as gerações previstas.</div></div>`;
+  const b = v => brl(v), sum = (arr, f) => arr.reduce((s, x) => s + f(x), 0);
+  const closed = rows.filter(x => ['fechado', 'pago', 'atrasado', 'vencido'].includes(x.st)), canc = rows.filter(x => x.st === 'cancelado'), open = rows.filter(x => x.st === 'orcando');
+  const paid = rows.filter(x => x.st === 'pago'), toRec = rows.filter(x => x.st === 'fechado'), late = rows.filter(x => x.st === 'atrasado' || x.st === 'vencido');
+  const answered = closed.length + canc.length, rate = answered ? closed.length / answered * 100 : 0;
+  const avgDisc = closed.length ? sum(closed, x => x.ch.disc) / closed.length : 0;
+  const ratioSug = closed.length ? sum(closed, x => x.ch.value) / Math.max(1, sum(closed, x => x.ch.price)) * 100 : 0;
+  const under = closed.filter(x => !x.ch.disc && x.ch.value < x.ch.price - .5).length;
+  const aiPlan = sum(closed, x => x.r.ai), aiReal = sum(closed, x => x.r.realAi);
+  const hEst = sum(closed.filter(x => num(x.B.realHours)), x => num(x.B.hours)), hReal = sum(closed, x => num(x.B.realHours));
+  const kpi = (l, v, sub) => `<div class="kpi"><small>${l}</small><b>${v}</b><span>${sub || ''}</span></div>`;
+  return `<div class="kpis">
+    ${kpi('Orçamentos feitos', rows.length, `${open.length} em aberto · ${canc.length} cancelados`)}
+    ${kpi('Taxa de fechamento', answered ? fmtN(Math.round(rate)) + '%' : '—', `${closed.length} fechados de ${answered} com resposta`)}
+    ${kpi('Recebido', b(sum(paid, x => x.ch.value)), `${paid.length} projeto${paid.length === 1 ? '' : 's'} pago${paid.length === 1 ? '' : 's'}`)}
+    ${kpi('A receber', b(sum(toRec, x => x.ch.value)), late.length ? `<span class="warn">+ ${b(sum(late, x => x.ch.value))} atrasado (${late.length})</span>` : 'nada atrasado')}
+    ${kpi('Lucro estimado (pagos)', b(sum(paid, x => x.profit)), 'o que sobrou além do seu salário e dos custos')}
+    ${kpi('Cobrado × sugerido', closed.length ? fmtN(Math.round(ratioSug)) + '%' : '—', closed.length ? `desconto médio ${fmtN(Math.round(avgDisc))}%${under ? ` · <span class="warn">${under} abaixo sem desconto</span>` : ''}` : '')}
+    ${kpi('IA gasta × prevista', aiPlan ? fmtN(Math.round(aiReal / aiPlan * 100)) + '%' : '—', `${b(aiReal)} de ${b(aiPlan)} nos projetos fechados`)}
+    ${kpi('Horas reais × estimadas', hEst ? fmtN(Math.round(hReal / hEst * 100)) + '%' : '—', hEst ? `${fmtN(hReal)} h de ${fmtN(hEst)} h` : 'preencha as horas reais no fechamento')}
+  </div>
+  <div class="sec"><h5>Projetos</h5><table class="pl"><thead><tr><th>Projeto</th><th>Status</th><th class="r">Sugerido</th><th class="r">Cobrado</th><th class="r">Desc.</th><th>Até</th></tr></thead><tbody>
+    ${rows.sort((a, c) => (c.B.paidAt || c.p.createdAt || 0) - (a.B.paidAt || a.p.createdAt || 0)).map(x => { const k = x.st === 'vencido' ? 'atrasado' : x.st, [l, c] = BST[k]; return `<tr data-c="open" data-p="${x.p.id}"><td>${esc(x.p.name)}</td><td><span class="chip" style="--c:${c}"><i></i>${x.st === 'vencido' ? 'Venceu' : l}</span></td><td class="r">${b(x.ch.price)}</td><td class="r">${x.st === 'orcando' || x.st === 'cancelado' ? '—' : b(x.ch.value)}</td><td class="r">${x.ch.disc ? fmtN(x.ch.disc) + '%' : '—'}</td><td>${x.B.due ? new Date(x.B.due + 'T12:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '—'}</td></tr>`; }).join('')}
+  </tbody></table>
+  <div class="hint" style="margin-top:8px"><b>Lucro estimado</b> = valor cobrado − taxas − IA gasta − outros custos − (sua hora completa × horas). Como o seu salário já está na hora, o lucro é o que sobrou além dele. Cancelados não entram nas somas.</div></div>`;
+}
 let calcSaveT;
 function calcSave() { clearTimeout(calcSaveT); calcSaveT = setTimeout(async () => { saveCfg(); const p = calcPid && proj(calcPid); if (p) await DB.put('projects', p); }, 400); }
 function drawCalc() {
@@ -5718,7 +5780,8 @@ function drawCalc() {
   const money = (k, v, scope = '', u = 'R$') => `<div class="money" data-u="${u}"><input class="inp" inputmode="decimal" data-k="${k}" ${scope ? `data-scope="${scope}"` : ''} value="${esc(String(v ?? ''))}"></div>`;
   const pct = (k, v) => `<div class="money" data-u="%"><input class="inp" inputmode="decimal" data-k="${k}" value="${esc(String(v ?? ''))}"></div>`;
   const projSel = `<select class="inp" data-c="proj" style="max-width:260px"><option value="">Simulação (sem projeto)</option>${[...state.projects].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')).map(p => `<option value="${p.id}" ${p.id === calcPid ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>`;
-  const tabs = `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:4px"><div class="ctabs"><button data-c="tab" data-t="proj" class="${calcTab === 'proj' ? 'on' : ''}">Projeto</button><button data-c="tab" data-t="me" class="${calcTab === 'me' ? 'on' : ''}">Meus custos</button></div>${calcTab === 'proj' ? projSel : ''}</div>`;
+  const tabs = `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:4px"><div class="ctabs"><button data-c="tab" data-t="proj" class="${calcTab === 'proj' ? 'on' : ''}">Projeto</button><button data-c="tab" data-t="me" class="${calcTab === 'me' ? 'on' : ''}">Meus custos</button><button data-c="tab" data-t="dash" class="${calcTab === 'dash' ? 'on' : ''}">Painel</button></div>${calcTab === 'proj' ? projSel : ''}</div>`;
+  if (calcTab === 'dash') { body.innerHTML = `${tabs}${dashHTML()}`; return; }
   let left;
   if (calcTab === 'me') left = `
     <div class="sec"><h5>Quanto você quer ganhar</h5>
@@ -5757,6 +5820,16 @@ function drawCalc() {
     <div class="sec"><h5>Outros custos do projeto</h5>
       <div class="lines k">${B.extras.map((x, i) => `<div class="ln"><input class="inp" data-l="extras" data-i="${i}" data-k="name" value="${esc(x.name)}" placeholder="Trilha, banco de imagem, locução…"><input class="inp" inputmode="decimal" data-l="extras" data-i="${i}" data-k="value" value="${esc(String(x.value))}"><button class="rm" data-c="rm" data-l="extras" data-i="${i}" title="Remover">${I.x}</button></div>`).join('') || '<div class="hint">Nenhum.</div>'}</div>
       <button class="add" data-c="add" data-l="extras">+ custo</button></div>`;
+  if (calcTab === 'proj' && calcPid) {
+    const st = B.status || 'orcando', ch = chargedOf(calcPid);
+    left += `<div class="sec"><h5>Fechamento</h5>
+      <div class="stchips">${Object.entries(BST).map(([k, [l, c]]) => `<button data-c="bst" data-s="${k}" class="${st === k ? 'on' : ''}" style="--c:${c}"><i></i>${l}</button>`).join('')}</div>
+      ${bStatus(B) === 'vencido' ? `<div class="hint warn" style="margin:-4px 0 10px">⚠️ A data já passou e o projeto não está marcado como pago.</div>` : ''}
+      <div class="f"><span>Desconto dado ao cliente<small>para lembrar que cobrou menos de propósito</small></span><div class="money" data-u="%"><input class="inp" inputmode="decimal" data-k="discPct" data-scope="b" value="${esc(String(B.discPct ?? ''))}" placeholder="0"></div></div>
+      <div class="f"><span>Valor que você cobrou<small>deixe vazio para usar o sugerido com desconto</small></span><div class="money" data-u="R$"><input class="inp" inputmode="decimal" data-k="charged" data-scope="b" value="${esc(String(B.charged ?? ''))}" placeholder="${esc(fmtN(ch.auto))}"></div></div>
+      <div class="f"><span>Entrega ou pagamento até<small>avisa quando passar da data sem estar pago</small></span><input class="inp" type="date" data-k="due" data-scope="b" value="${esc(B.due || '')}"></div>
+      <div class="f"><span>Horas reais<small>opcional, para comparar com as estimadas</small></span><input class="inp" inputmode="decimal" data-k="realHours" data-scope="b" value="${esc(String(B.realHours ?? ''))}" placeholder="—"></div></div>`;
+  }
   body.innerHTML = `${tabs}<div class="cgrid"><div>${left}</div><div class="res" id="calcRes"></div></div>`;
   drawCalcResult();
 }
@@ -5775,6 +5848,7 @@ function drawCalcResult() {
         <div class="row"><span>Custos fixos por mês</span><b>${b(r.fixedM)}</b></div>
         <div class="hint" style="margin-top:8px">Esse é o custo da sua hora antes da margem e das taxas. Use a aba Projeto para orçar um trabalho.</div>` : `
       <div class="big">${b(r.price)}</div>
+      ${p && (num(calcBudget(calcPid).discPct) || String(calcBudget(calcPid).charged ?? '').trim() !== '') ? (() => { const ch = chargedOf(calcPid); const diff = ch.value - ch.auto; return `<div class="hint" style="margin:-2px 0 6px">Você cobrou <b style="color:var(--tx)">${b(ch.value)}</b>${ch.disc ? ` · desconto de ${fmtN(ch.disc)}% (${b(r.price - ch.auto)})` : ''}${Math.abs(diff) > .5 ? ` · <span class="${diff < 0 ? 'warn' : 'ok'}">${diff < 0 ? b(-diff) + ' abaixo' : b(diff) + ' acima'} do sugerido${ch.disc ? ' com desconto' : ''}</span>` : ''}</div>`; })() : ''}
       <div class="bar">${parts.map(x => `<i style="width:${x[1] / tot * 100}%;background:${x[2]}" title="${x[0]}"></i>`).join('')}</div>
       <div class="leg">${parts.map(x => `<span style="--c:${x[2]}">${x[0]}</span>`).join('')}</div>
       <div style="margin-top:10px">
@@ -10147,6 +10221,7 @@ addEventListener('resize', setHH);
 (async () => {
   setHH();
   try {
+    setTimeout(() => { try { const od = overdueProjects(); const k = 'estudio-do-shin:odToast'; if (od.length && localStorage.getItem(k) !== todayISO()) { localStorage.setItem(k, todayISO()); toast(`${od.length} projeto${od.length > 1 ? 's' : ''} passou da data sem estar pago.`, 'Ver', () => { openCalc(); calcTab = 'dash'; drawCalc(); }, 8000); } } catch {} }, 4000);
     const sy = await SYNC.start();
     if (sy.on && sy.changed?.has('cfg')) { applyTheme(); renderMe(); }
   } catch (err) { console.warn('sync', err); }
