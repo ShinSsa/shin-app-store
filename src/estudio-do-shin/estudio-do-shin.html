@@ -118,6 +118,39 @@ main{margin-left:var(--sbw);padding:0 16px calc(300px + env(safe-area-inset-bott
 .vtitle .crumb b{color:var(--tx2);font-weight:500}
 .vtitle .cnt{font-size:13px;color:var(--tx3)}
 .gtools2{display:flex;gap:6px;margin-left:auto;align-self:center}
+.calc .box{max-width:980px}
+.calc .ctabs{display:flex;gap:4px;background:var(--bg3);padding:4px;border-radius:12px;margin-bottom:14px;width:max-content}
+.calc .ctabs button{height:32px;padding:0 14px;border-radius:9px;color:var(--tx2);font-size:13px}
+.calc .ctabs button.on{background:var(--bg);color:var(--tx);font-weight:600}
+.calc .cgrid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(280px,1fr);gap:18px}
+@media(max-width:820px){.calc .cgrid{grid-template-columns:1fr}}
+.calc .sec{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.calc .sec h5{margin:0 0 10px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3)}
+.calc .f{display:grid;grid-template-columns:1fr 150px;gap:8px;align-items:center;margin-bottom:8px;font-size:13px}
+.calc .f small{display:block;color:var(--tx3);font-size:11.5px}
+.calc .inp{height:34px}
+.calc .money{position:relative}.calc .money::before{content:attr(data-u);position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--tx3);font-size:12px;pointer-events:none}
+.calc .money .inp{padding-left:34px;width:100%;text-align:right}
+.calc .lines .ln{display:grid;grid-template-columns:minmax(0,1fr) 90px 70px 32px;gap:6px;margin-bottom:6px;align-items:center}
+.calc .lines.v .ln{grid-template-columns:minmax(0,1fr) 70px 70px 32px}
+.calc .lines.k .ln{grid-template-columns:minmax(0,1fr) 120px 32px}
+.calc .lines.e .ln{grid-template-columns:minmax(0,1fr) 110px 80px 32px}
+.calc .lines select,.calc .lines .inp{height:32px;font-size:12.5px;width:100%}
+.calc .lnh{display:grid;font-size:11px;color:var(--tx3);margin-bottom:4px}
+.calc .add{font-size:12.5px;color:var(--ac);padding:4px 0}
+.calc .rm{width:32px;height:32px;border-radius:8px;color:var(--tx3);display:grid;place-items:center}.calc .rm svg{width:14px;height:14px}.calc .rm:hover{color:#ff6b6b;background:var(--bg3)}
+.calc .res{position:sticky;top:0}
+.calc .big{font-size:30px;font-weight:800;letter-spacing:-.02em;margin:2px 0 4px}
+.calc .row{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:5px 0;border-bottom:1px dashed var(--line)}
+.calc .row:last-child{border:0}.calc .row b{font-variant-numeric:tabular-nums}
+.calc .bar{display:flex;height:10px;border-radius:6px;overflow:hidden;margin:10px 0 6px;background:var(--bg3)}
+.calc .bar i{display:block;height:100%}
+.calc .leg{display:flex;flex-wrap:wrap;gap:10px;font-size:11.5px;color:var(--tx2)}.calc .leg span::before{content:"";display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;background:var(--c)}
+.calc .cmp{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.calc .cmp div{background:var(--bg3);border-radius:10px;padding:10px}.calc .cmp small{color:var(--tx3);font-size:11px;display:block}
+.calc .cmp b{font-size:17px}
+.calc .warn{color:#ffb347}.calc .ok{color:#51cf66}
+.calc .hint{font-size:11.5px;color:var(--tx3);line-height:1.45}
 .gselbar{position:sticky;top:8px;z-index:30;display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 12px;padding:8px;border-radius:16px;background:var(--glass,var(--bg2));-webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4);border:1px solid var(--ac);box-shadow:0 10px 30px var(--shadow)}
 .gselbar[hidden]{display:none}
 .gselbar .n{font-weight:700;font-size:13.5px;padding:0 8px;min-width:118px}
@@ -5598,6 +5631,172 @@ function inView(o) {
   if (v.kind === 'project') return o.projectId === v.pid && (!v.fid || o.folderId === v.fid);
   return true;
 }
+const IC_CALC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M8.5 7h7M8.5 11h.01M12 11h.01M15.5 11h.01M8.5 14.5h.01M12 14.5h.01M15.5 14.5h.01M8.5 18h.01M12 18h3.5"/></svg>';
+/* ---------- Calculadora de orçamento ----------
+   Perfil de custos (uma vez) + orçamento por projeto + gasto real de IA do projeto (soma do custo das gerações dele). */
+const CALC = () => (cfg.calc ||= { salary: 4000, hours: 120, equip: [{ name: 'Computador', value: 8000, months: 36 }], fixed: [{ name: 'DAS do MEI', monthly: 0 }, { name: 'Softwares e assinaturas', monthly: 150 }, { name: 'Internet e energia (parte do trabalho)', monthly: 100 }], feePct: 5, taxPct: 0, marginPct: 20, retryPct: 40 });
+const num = v => { const n = parseFloat(String(v).replace(/\./g, '').replace(',', '.')); return isFinite(n) ? n : 0; };
+const fmtN = v => (Math.round(v * 100) / 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+function imgUnitUsd(prov, model, res = '1K') {
+  if (!prov || PROVIDERS[prov]?.free) return 0;
+  if (prov === 'gemini') return cfg.lastCost?.[`gemini:${model}:${res}`] ?? GEM_PRICES[model]?.est?.[res] ?? 0.07;
+  return cfg.lastCost?.[`${prov}:${model}`] ?? 0.02;
+}
+function calcModels() {
+  const out = [];
+  for (const [k, P] of Object.entries(PROVIDERS)) { if (k === 'modelscope' && !cfg.msOn) continue; try { (P.models?.() || []).forEach(m => out.push({ v: `${k}|${m.id}`, l: `${P.label} · ${m.label || m.id}`, free: !!P.free })); } catch {} }
+  return out;
+}
+function calcBudget(pid) {
+  const p = pid && proj(pid); if (!p) return (cfg.calcSim ||= { hours: 8, imgs: [], vids: [], extras: [] });
+  return (p.budget ||= { hours: 8, imgs: [], vids: [], extras: [] });
+}
+function calcResult(pid) {
+  const C = CALC(), B = calcBudget(pid), fx = cfg.usdBrl || 5.5;
+  const equipM = C.equip.reduce((s, e) => s + (num(e.months) > 0 ? num(e.value) / num(e.months) : 0), 0);
+  const fixedM = C.fixed.reduce((s, f) => s + num(f.monthly), 0);
+  const hours = Math.max(1, num(C.hours));
+  const rateLabor = num(C.salary) / hours, rateOver = (equipM + fixedM) / hours, rate = rateLabor + rateOver;
+  const h = num(B.hours);
+  const labor = rateLabor * h, overhead = rateOver * h;
+  const imgUsd = B.imgs.reduce((s, l) => { const [pv, md] = (l.m || '').split('|'); return s + imgUnitUsd(pv, md, l.res || '1K') * num(l.qty); }, 0);
+  const vidUsd = B.vids.reduce((s, l) => s + (VEO_MODELS.find(m => m.id === l.m)?.usd ?? 0.15) * num(l.secs) * num(l.qty), 0);
+  const aiPlan = (imgUsd + vidUsd) * fx, ai = aiPlan * (1 + num(C.retryPct) / 100);
+  const extras = B.extras.reduce((s, e) => s + num(e.value), 0);
+  const cost = labor + overhead + ai + extras;
+  const profit = cost * num(C.marginPct) / 100;
+  const deduct = Math.min(.9, (num(C.feePct) + num(C.taxPct)) / 100);
+  const price = (cost + profit) / (1 - deduct), fees = price * deduct;
+  const items = pid ? state.items.filter(i => i.projectId === pid) : [];
+  const realAi = items.reduce((s, i) => s + (typeof i.cost === 'number' ? i.cost : 0), 0) * fx;
+  const realImgs = items.filter(i => !isVid(i)).length, realVids = items.filter(isVid).length;
+  const planImgs = B.imgs.reduce((s, l) => s + num(l.qty), 0), planVids = B.vids.reduce((s, l) => s + num(l.qty), 0);
+  return { rate, rateLabor, rateOver, equipM, fixedM, labor, overhead, ai, aiPlan, extras, cost, profit, fees, price, realAi, realImgs, realVids, planImgs, planVids, h };
+}
+let calcTab = 'proj', calcPid = null;
+function openCalc(pid = null) {
+  calcPid = pid && proj(pid) ? pid : null; calcTab = calcPid ? 'proj' : (cfg.calc ? 'proj' : 'me');
+  document.getElementById('calcModal')?.remove();
+  const m = document.createElement('div'); m.className = 'modal calc'; m.id = 'calcModal';
+  m.innerHTML = `<div class="box wide"><div class="hd"><h3>Orçamento</h3><button class="iconbtn" data-a="close">${I.x}</button></div><div class="bd" id="calcBody"></div></div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click', e => {
+    if (e.target === m) return m.remove();
+    const b = e.target.closest('[data-c]'); if (!b) return;
+    const a = b.dataset.c, C = CALC(), B = calcBudget(calcPid);
+    if (a === 'close') return m.remove();
+    if (a === 'tab') { calcTab = b.dataset.t; return drawCalc(); }
+    if (a === 'proj') return;
+    if (a === 'add') { const list = b.dataset.l;
+      if (list === 'equip') C.equip.push({ name: '', value: 0, months: 36 });
+      if (list === 'fixed') C.fixed.push({ name: '', monthly: 0 });
+      if (list === 'imgs') { const all = calcModels(), cur = `${cfg.sel?.provider}|${cfg.sel?.model}`; const md = all.find(x => x.v === cur) || all.find(x => !x.free) || all[0]; B.imgs.push({ m: md?.v || '', res: cfg.sel?.res || '1K', qty: 10 }); }
+      if (list === 'vids') B.vids.push({ m: VEO_MODELS[0].id, secs: 8, qty: 3 });
+      if (list === 'extras') B.extras.push({ name: '', value: 0 });
+      calcSave(); return drawCalc(); }
+    if (a === 'rm') { const list = b.dataset.l, i = +b.dataset.i; (list === 'equip' || list === 'fixed' ? C[list] : B[list]).splice(i, 1); calcSave(); return drawCalc(); }
+    if (a === 'print') return calcPrint();
+  });
+  m.addEventListener('input', e => {
+    const t = e.target, k = t.dataset.k; if (!k) return;
+    const C = CALC(), B = calcBudget(calcPid);
+    if (t.dataset.l) { const list = t.dataset.l, arr = list === 'equip' || list === 'fixed' ? C[list] : B[list]; const row = arr[+t.dataset.i]; if (row) row[k] = t.type === 'number' || t.inputMode === 'decimal' ? t.value : t.value; }
+    else if (t.dataset.scope === 'b') B[k] = t.value; else C[k] = t.value;
+    calcSave(); drawCalcResult();
+  });
+  m.addEventListener('change', e => { if (e.target.dataset.c === 'proj') { calcPid = e.target.value || null; drawCalc(); }  });
+  drawCalc();
+}
+let calcSaveT;
+function calcSave() { clearTimeout(calcSaveT); calcSaveT = setTimeout(async () => { saveCfg(); const p = calcPid && proj(calcPid); if (p) await DB.put('projects', p); }, 400); }
+function drawCalc() {
+  const body = $('#calcBody'); if (!body) return;
+  const C = CALC(), B = calcBudget(calcPid), MD = calcModels();
+  const money = (k, v, scope = '', u = 'R$') => `<div class="money" data-u="${u}"><input class="inp" inputmode="decimal" data-k="${k}" ${scope ? `data-scope="${scope}"` : ''} value="${esc(String(v ?? ''))}"></div>`;
+  const pct = (k, v) => `<div class="money" data-u="%"><input class="inp" inputmode="decimal" data-k="${k}" value="${esc(String(v ?? ''))}"></div>`;
+  const projSel = `<select class="inp" data-c="proj" style="max-width:260px"><option value="">Simulação (sem projeto)</option>${[...state.projects].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')).map(p => `<option value="${p.id}" ${p.id === calcPid ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>`;
+  const tabs = `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:4px"><div class="ctabs"><button data-c="tab" data-t="proj" class="${calcTab === 'proj' ? 'on' : ''}">Projeto</button><button data-c="tab" data-t="me" class="${calcTab === 'me' ? 'on' : ''}">Meus custos</button></div>${calcTab === 'proj' ? projSel : ''}</div>`;
+  let left;
+  if (calcTab === 'me') left = `
+    <div class="sec"><h5>Quanto você quer ganhar</h5>
+      <div class="f"><span>Pretensão salarial por mês<small>o que você quer tirar limpo</small></span>${money('salary', C.salary)}</div>
+      <div class="f"><span>Horas produtivas por mês<small>horas que você cobra de verdade (sem reunião, e-mail, estudo)</small></span><input class="inp" inputmode="decimal" data-k="hours" value="${esc(String(C.hours))}"></div></div>
+    <div class="sec"><h5>Equipamentos (depreciação)</h5>
+      <div class="lnh" style="grid-template-columns:minmax(0,1fr) 110px 80px 32px"><span>Item</span><span>Valor</span><span>Vida útil (meses)</span></div>
+      <div class="lines e">${C.equip.map((e, i) => `<div class="ln"><input class="inp" data-l="equip" data-i="${i}" data-k="name" value="${esc(e.name)}" placeholder="Computador, mesa digitalizadora…"><input class="inp" inputmode="decimal" data-l="equip" data-i="${i}" data-k="value" value="${esc(String(e.value))}"><input class="inp" inputmode="decimal" data-l="equip" data-i="${i}" data-k="months" value="${esc(String(e.months))}"><button class="rm" data-c="rm" data-l="equip" data-i="${i}" title="Remover">${I.x}</button></div>`).join('')}</div>
+      <button class="add" data-c="add" data-l="equip">+ equipamento</button></div>
+    <div class="sec"><h5>Custos fixos por mês</h5>
+      <div class="lines k">${C.fixed.map((f, i) => `<div class="ln"><input class="inp" data-l="fixed" data-i="${i}" data-k="name" value="${esc(f.name)}" placeholder="Nome"><input class="inp" inputmode="decimal" data-l="fixed" data-i="${i}" data-k="monthly" value="${esc(String(f.monthly))}"><button class="rm" data-c="rm" data-l="fixed" data-i="${i}" title="Remover">${I.x}</button></div>`).join('')}</div>
+      <button class="add" data-c="add" data-l="fixed">+ custo fixo</button>
+      <div class="hint">O valor do DAS do MEI muda conforme a atividade e o ano. Confira o seu no Portal do Empreendedor.</div></div>
+    <div class="sec"><h5>Taxas e lucro</h5>
+      <div class="f"><span>Taxa de recebimento<small>maquininha, Pix com taxa, plataforma, boleto</small></span>${pct('feePct', C.feePct)}</div>
+      <div class="f"><span>Imposto sobre a nota<small>MEI normalmente 0% (o imposto já está no DAS)</small></span>${pct('taxPct', C.taxPct)}</div>
+      <div class="f"><span>Margem de lucro<small>reserva para crescer, meses fracos, imprevistos</small></span>${pct('marginPct', C.marginPct)}</div>
+      <div class="f"><span>Gerações descartadas<small>quantas tentativas a mais você costuma gastar até acertar</small></span>${pct('retryPct', C.retryPct)}</div></div>`;
+  else left = `
+    <div class="sec"><h5>Trabalho</h5>
+      <div class="f"><span>Horas estimadas no projeto<small>briefing, prompts, edição, montagem, revisões</small></span><input class="inp" inputmode="decimal" data-k="hours" data-scope="b" value="${esc(String(B.hours))}"></div></div>
+    <div class="sec"><h5>Imagens previstas</h5>
+      <div class="lnh" style="grid-template-columns:minmax(0,1fr) 90px 70px 32px"><span>Modelo</span><span>Resolução</span><span>Qtd.</span></div>
+      <div class="lines">${B.imgs.map((l, i) => `<div class="ln"><select data-l="imgs" data-i="${i}" data-k="m">${MD.map(o => `<option value="${esc(o.v)}" ${o.v === l.m ? 'selected' : ''}>${esc(o.l)}${o.free ? ' (grátis)' : ''}</option>`).join('')}</select><select data-l="imgs" data-i="${i}" data-k="res">${['1K', '2K', '4K'].map(r => `<option ${r === (l.res || '1K') ? 'selected' : ''}>${r}</option>`).join('')}</select><input class="inp" inputmode="numeric" data-l="imgs" data-i="${i}" data-k="qty" value="${esc(String(l.qty))}"><button class="rm" data-c="rm" data-l="imgs" data-i="${i}" title="Remover">${I.x}</button></div>`).join('') || '<div class="hint">Nenhuma imagem prevista.</div>'}</div>
+      <button class="add" data-c="add" data-l="imgs">+ imagens</button></div>
+    <div class="sec"><h5>Vídeos previstos</h5>
+      <div class="lnh" style="grid-template-columns:minmax(0,1fr) 70px 70px 32px"><span>Modelo</span><span>Segundos</span><span>Qtd.</span></div>
+      <div class="lines v">${B.vids.map((l, i) => `<div class="ln"><select data-l="vids" data-i="${i}" data-k="m">${VEO_MODELS.map(o => `<option value="${o.id}" ${o.id === l.m ? 'selected' : ''}>${o.label}</option>`).join('')}</select><input class="inp" inputmode="numeric" data-l="vids" data-i="${i}" data-k="secs" value="${esc(String(l.secs))}"><input class="inp" inputmode="numeric" data-l="vids" data-i="${i}" data-k="qty" value="${esc(String(l.qty))}"><button class="rm" data-c="rm" data-l="vids" data-i="${i}" title="Remover">${I.x}</button></div>`).join('') || '<div class="hint">Nenhum vídeo previsto.</div>'}</div>
+      <button class="add" data-c="add" data-l="vids">+ vídeos</button></div>
+    <div class="sec"><h5>Outros custos do projeto</h5>
+      <div class="lines k">${B.extras.map((x, i) => `<div class="ln"><input class="inp" data-l="extras" data-i="${i}" data-k="name" value="${esc(x.name)}" placeholder="Trilha, banco de imagem, locução…"><input class="inp" inputmode="decimal" data-l="extras" data-i="${i}" data-k="value" value="${esc(String(x.value))}"><button class="rm" data-c="rm" data-l="extras" data-i="${i}" title="Remover">${I.x}</button></div>`).join('') || '<div class="hint">Nenhum.</div>'}</div>
+      <button class="add" data-c="add" data-l="extras">+ custo</button></div>`;
+  body.innerHTML = `${tabs}<div class="cgrid"><div>${left}</div><div class="res" id="calcRes"></div></div>`;
+  drawCalcResult();
+}
+function drawCalcResult() {
+  const el = $('#calcRes'); if (!el) return;
+  const r = calcResult(calcPid), C = CALC(), b = v => brl(v), p = calcPid && proj(calcPid);
+  const parts = [['Trabalho', r.labor, '#4dabf7'], ['Custos fixos e equipamento', r.overhead, '#748ffc'], ['IA', r.ai, 'var(--ac)'], ['Outros', r.extras, '#ffa94d'], ['Lucro', r.profit, '#51cf66'], ['Taxas', r.fees, '#868e96']].filter(x => x[1] > 0.004);
+  const tot = parts.reduce((s, x) => s + x[1], 0) || 1;
+  const over = r.realAi > r.ai * 1.0001 && r.ai > 0;
+  el.innerHTML = `<div class="sec">
+      <h5>${calcTab === 'me' ? 'Sua hora' : 'Preço sugerido'}</h5>
+      ${calcTab === 'me' ? `<div class="big">${b(r.rate)}<span style="font-size:14px;color:var(--tx3);font-weight:500"> /hora</span></div>
+        <div class="row"><span>Sua remuneração por hora</span><b>${b(r.rateLabor)}</b></div>
+        <div class="row"><span>Custos fixos + equipamento por hora</span><b>${b(r.rateOver)}</b></div>
+        <div class="row"><span>Depreciação por mês</span><b>${b(r.equipM)}</b></div>
+        <div class="row"><span>Custos fixos por mês</span><b>${b(r.fixedM)}</b></div>
+        <div class="hint" style="margin-top:8px">Esse é o custo da sua hora antes da margem e das taxas. Use a aba Projeto para orçar um trabalho.</div>` : `
+      <div class="big">${b(r.price)}</div>
+      <div class="bar">${parts.map(x => `<i style="width:${x[1] / tot * 100}%;background:${x[2]}" title="${x[0]}"></i>`).join('')}</div>
+      <div class="leg">${parts.map(x => `<span style="--c:${x[2]}">${x[0]}</span>`).join('')}</div>
+      <div style="margin-top:10px">
+        <div class="row"><span>Trabalho (${fmtN(r.h)} h × ${b(r.rateLabor)})</span><b>${b(r.labor)}</b></div>
+        <div class="row"><span>Custos fixos e equipamento</span><b>${b(r.overhead)}</b></div>
+        <div class="row"><span>IA prevista${num(C.retryPct) ? ` (+${fmtN(num(C.retryPct))}% de tentativas)` : ''}</span><b>${b(r.ai)}</b></div>
+        ${r.extras ? `<div class="row"><span>Outros custos</span><b>${b(r.extras)}</b></div>` : ''}
+        <div class="row"><span>Lucro (${fmtN(num(C.marginPct))}%)</span><b>${b(r.profit)}</b></div>
+        <div class="row"><span>Taxas e impostos</span><b>${b(r.fees)}</b></div>
+      </div></div>
+    ${p ? `<div class="sec"><h5>Previsto × real (IA)</h5>
+      <div class="cmp"><div><small>IA prevista</small><b>${b(r.ai)}</b><small>${r.planImgs} imagens · ${r.planVids} vídeos</small></div>
+      <div><small>IA gasta até agora</small><b class="${over ? 'warn' : 'ok'}">${b(r.realAi)}</b><small>${r.realImgs} imagens · ${r.realVids} vídeos</small></div></div>
+      <div class="hint" style="margin-top:8px">${over ? '⚠️ O gasto de IA já passou do previsto. Reveja o orçamento ou as tentativas.' : 'Tudo o que você gera neste projeto (Galeria, Canvas e Timeline) entra aqui sozinho.'} O gasto é uma estimativa pela tabela de preços; o valor oficial fica no painel do fornecedor.</div></div>` : `<div class="sec"><div class="hint">Escolha um projeto no topo para comparar o previsto com o que você já gastou de IA nele.</div></div>`}
+    <div class="sec" style="display:flex;gap:8px;align-items:center"><button class="btn" data-c="print">${I.down} Exportar resumo</button><span class="hint">Abre a impressão. Escolha "Salvar como PDF".</span></div>
+    <div class="hint">Preço sugerido a partir dos seus números. A decisão do preço final é sua.</div>`}`;
+}
+function calcPrint() {
+  const r = calcResult(calcPid), C = CALC(), B = calcBudget(calcPid), p = calcPid && proj(calcPid), b = v => brl(v);
+  const w = window.open('', '_blank'); if (!w) return toast('Libere as janelas pop-up para exportar.');
+  const line = (l, v) => `<tr><td>${l}</td><td style="text-align:right">${v}</td></tr>`;
+  const imgs = B.imgs.map(l => { const [pv, md] = (l.m || '').split('|'); return `${num(l.qty)} × ${esc(modelLabel(pv, md))} ${l.res || '1K'}`; }).join('<br>') || '—';
+  const vids = B.vids.map(l => `${num(l.qty)} × ${esc(VEO_MODELS.find(m => m.id === l.m)?.label || l.m)} · ${num(l.secs)} s`).join('<br>') || '—';
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Orçamento ${p ? esc(p.name) : ''}</title><style>body{font:14px/1.5 -apple-system,system-ui,sans-serif;color:#111;max-width:720px;margin:40px auto;padding:0 24px}h1{font-size:22px;margin:0 0 4px}small{color:#666}table{width:100%;border-collapse:collapse;margin:16px 0}td{padding:7px 0;border-bottom:1px solid #eee}.tot td{font-size:20px;font-weight:800;border:0;padding-top:14px}</style></head><body>
+    <h1>Orçamento${p ? ` · ${esc(p.name)}` : ''}</h1><small>${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</small>
+    <table>${line(`Trabalho (${fmtN(r.h)} h)`, b(r.labor))}${line('Custos fixos e equipamento', b(r.overhead))}${line(`IA prevista (com ${fmtN(num(C.retryPct))}% de tentativas)`, b(r.ai))}${r.extras ? line('Outros custos', b(r.extras)) : ''}${line(`Lucro (${fmtN(num(C.marginPct))}%)`, b(r.profit))}${line('Taxas e impostos', b(r.fees))}<tr class="tot"><td>Preço sugerido</td><td style="text-align:right">${b(r.price)}</td></tr></table>
+    <table>${line('Imagens previstas', imgs)}${line('Vídeos previstos', vids)}${p ? line('IA gasta até agora', b(r.realAi)) : ''}</table>
+    <small>Estimativa feita no Estúdio do Shin. Os custos de IA são aproximados pela tabela de preços dos fornecedores.</small>
+    <script>onload=()=>setTimeout(()=>print(),200)<\/script></body></html>`);
+  w.document.close();
+}
 const GF = () => (cfg.galF ||= {});
 // ---- seleção de várias gerações na Galeria ----
 const SEL = { on: false, ids: new Set(), last: null };
@@ -5746,6 +5945,7 @@ function renderSidebar() {
     <button class="nav-item ${on('loose')}" data-v="loose" title="Sem projeto">${I.inbox}<span class="t">Sem projeto</span><span class="c">${countIn(i => !i.projectId)}</span></button>
     <button class="nav-item elbtn" data-a="elements" title="Elementos">${I.at}<span class="t">Elementos</span><span class="c">${state.elements.length}</span></button>
     <button class="nav-item" data-a="editor" title="Editar imagem">${sm(ICON_BRUSH)}<span class="t">Editar imagem</span></button>
+    <button class="nav-item" data-a="calc" title="Calculadora de orçamento">${sm(IC_CALC)}<span class="t">Orçamento</span></button>
     <div id="diskChip"></div>
     <div class="nav-sec">Projetos <button data-a="newProject" title="Novo projeto">${I.plus}</button></div>
     ${projs.length ? '' : '<div class="nav-empty">Nenhum projeto ainda. Crie um no + acima.</div>'}
@@ -5767,6 +5967,7 @@ $('#sidebar').addEventListener('click', async e => {
   if (b.dataset.v) { setView(b.dataset.v === 'project' ? { kind: 'project', pid: b.dataset.pid, fid: b.dataset.fid || null } : { kind: b.dataset.v }); return; }
   const a = b.dataset.a;
   if (a === 'sbMini') { cfg.sbMini = !cfg.sbMini; saveCfg(); applySbMini(); renderSidebar(); return; }
+  if (a === 'calc') { closeSidebar?.(); const v = view(); openCalc(v.kind === 'project' ? v.pid : null); return; }
   if (a === 'elements') { closeSidebar(); openElements(); }
   if (a === 'disk') diskMenu(b);
   if (a === 'editor') { closeSidebar(); openRefPicker('free', r => openEditor({ data: r.data })); }
@@ -5857,7 +6058,7 @@ function renderTitle() {
   const gf = cfg.galFilter || 'all', hasV = state.items.some(isVid);
   $('#vtitle').innerHTML = `<h1>${esc(h)}</h1>${crumb}<span class="cnt">${visibleItems().length}</span>
     <div class="gfilter">${[['all', 'Tudo'], ['img', 'Imagens'], ['vid', 'Vídeos']].map(([k, l]) => `<button data-gf="${k}" class="${gf === k ? 'on' : ''}">${l}</button>`).join('')}</div>
-    <div class="gtools2">${nFilters() && visibleItems().length ? `<button class="danger" data-gt="delf" title="Excluir tudo o que aparece com estes filtros">${I.trash} Excluir ${visibleItems().length}</button>` : ''}<button data-gt="sel" class="${SEL.on ? 'on' : ''}" title="Selecionar várias">${IC_SELECT} Selecionar</button><button data-gt="layout" title="Layout">${IC_LAYOUT} Layout</button><button data-gt="filters" class="${nFilters() ? 'on' : ''}" title="Filtros">${IC_FILTER} Filtros${nFilters() ? ` <span class="bdg">${nFilters()}</span>` : ''}</button></div>`;
+    <div class="gtools2">${nFilters() && visibleItems().length ? `<button class="danger" data-gt="delf" title="Excluir tudo o que aparece com estes filtros">${I.trash} Excluir ${visibleItems().length}</button>` : ''}${view().kind === 'project' && proj(view().pid) ? `<button data-gt="calc" title="Orçamento deste projeto">${IC_CALC} Orçamento</button>` : ''}<button data-gt="sel" class="${SEL.on ? 'on' : ''}" title="Selecionar várias">${IC_SELECT} Selecionar</button><button data-gt="layout" title="Layout">${IC_LAYOUT} Layout</button><button data-gt="filters" class="${nFilters() ? 'on' : ''}" title="Filtros">${IC_FILTER} Filtros${nFilters() ? ` <span class="bdg">${nFilters()}</span>` : ''}</button></div>`;
   // abas de pastas dentro do projeto
   const ft = $('#ftabs');
   if (v.kind === 'project' && proj(v.pid)) {
@@ -9938,7 +10139,7 @@ addEventListener('resize', setHH);
   startBridge();
   setCtab(cfg.ctab || 'img');
   /* filtro Tudo / Imagens / Vídeos */
-  $('#vtitle').addEventListener('click', e => { const t = e.target.closest('[data-gt]'); if (t) { if (t.dataset.gt === 'sel') { SEL.on ? selExit() : selEnter(); return; } if (t.dataset.gt === 'layout') openLayout(t); if (t.dataset.gt === 'filters') openFilters(t); if (t.dataset.gt === 'delf') delFiltered(); return; } const b = e.target.closest('[data-gf]'); if (!b) return; cfg.galFilter = b.dataset.gf; saveCfg(); renderGrid(); });
+  $('#vtitle').addEventListener('click', e => { const t = e.target.closest('[data-gt]'); if (t) { if (t.dataset.gt === 'calc') { openCalc(view().pid); return; } if (t.dataset.gt === 'sel') { SEL.on ? selExit() : selEnter(); return; } if (t.dataset.gt === 'layout') openLayout(t); if (t.dataset.gt === 'filters') openFilters(t); if (t.dataset.gt === 'delf') delFiltered(); return; } const b = e.target.closest('[data-gf]'); if (!b) return; cfg.galFilter = b.dataset.gf; saveCfg(); renderGrid(); });
   /* prévia: o vídeo toca ao passar o mouse */
   let hovT = null;
   $('#grid').addEventListener('mouseover', e => {
