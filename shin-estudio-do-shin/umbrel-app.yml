@@ -4,7 +4,7 @@ name: Estúdio do Shin
 tagline: Estúdio de imagens e vídeos com IA, com canvas de nós
 icon: https://raw.githubusercontent.com/ShinSsa/shin-app-store/master/assets/estudio-do-shin.png
 category: ai
-version: "1.0.21"
+version: "1.0.22"
 port: 8787
 description: >-
   Estúdio pessoal de geração de imagens e vídeos com IA: galeria, projetos,
@@ -23,7 +23,7 @@ repo: https://github.com/ShinSsa/shin-app-store
 support: https://github.com/ShinSsa/shin-app-store/issues
 gallery: []
 releaseNotes: >-
-  Orçamento: status do projeto, desconto, valor cobrado, prazo, horas reais e um Painel com recebido, a receber, lucro e taxa de fechamento.
+  "Orçamento" passa a se chamar "Calculadora" (calculadora de preço).
 dependencies: []
 path: ""
 defaultUsername: ""

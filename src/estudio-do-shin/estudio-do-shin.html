@@ -5706,7 +5706,7 @@ function openCalc(pid = null) {
   calcPid = pid && proj(pid) ? pid : null; calcTab = calcPid ? 'proj' : (cfg.calc ? 'proj' : 'me');
   document.getElementById('calcModal')?.remove();
   const m = document.createElement('div'); m.className = 'modal calc'; m.id = 'calcModal';
-  m.innerHTML = `<div class="box wide"><div class="hd"><h3>Orçamento</h3><button class="iconbtn" data-c="close" title="Fechar">${I.x}</button></div><div class="bd" id="calcBody"></div></div>`;
+  m.innerHTML = `<div class="box wide"><div class="hd"><h3>Calculadora de preço</h3><button class="iconbtn" data-c="close" title="Fechar">${I.x}</button></div><div class="bd" id="calcBody"></div></div>`;
   document.body.appendChild(m);
   m.addEventListener('click', e => {
     if (e.target === m) return m.remove();
@@ -5746,7 +5746,7 @@ function dashHTML() {
     const profit = ch.value - fees - r.realAi - r.extras - (r.rateLabor + r.rateOver) * hrs;   // o que sobra além do seu salário
     return { p, B, ch, r, st, profit };
   });
-  if (!rows.length) return `<div class="sec"><div class="hint">Ainda não há orçamentos. Abra a aba <b>Projeto</b>, escolha um projeto e preencha as horas e as gerações previstas.</div></div>`;
+  if (!rows.length) return `<div class="sec"><div class="hint">Ainda não há cálculos. Abra a aba <b>Projeto</b>, escolha um projeto e preencha as horas e as gerações previstas.</div></div>`;
   const b = v => brl(v), sum = (arr, f) => arr.reduce((s, x) => s + f(x), 0);
   const closed = rows.filter(x => ['fechado', 'pago', 'atrasado', 'vencido'].includes(x.st)), canc = rows.filter(x => x.st === 'cancelado'), open = rows.filter(x => x.st === 'orcando');
   const paid = rows.filter(x => x.st === 'pago'), toRec = rows.filter(x => x.st === 'fechado'), late = rows.filter(x => x.st === 'atrasado' || x.st === 'vencido');
@@ -5758,7 +5758,7 @@ function dashHTML() {
   const hEst = sum(closed.filter(x => num(x.B.realHours)), x => num(x.B.hours)), hReal = sum(closed, x => num(x.B.realHours));
   const kpi = (l, v, sub) => `<div class="kpi"><small>${l}</small><b>${v}</b><span>${sub || ''}</span></div>`;
   return `<div class="kpis">
-    ${kpi('Orçamentos feitos', rows.length, `${open.length} em aberto · ${canc.length} cancelados`)}
+    ${kpi('Projetos calculados', rows.length, `${open.length} em aberto · ${canc.length} cancelados`)}
     ${kpi('Taxa de fechamento', answered ? fmtN(Math.round(rate)) + '%' : '—', `${closed.length} fechados de ${answered} com resposta`)}
     ${kpi('Recebido', b(sum(paid, x => x.ch.value)), `${paid.length} projeto${paid.length === 1 ? '' : 's'} pago${paid.length === 1 ? '' : 's'}`)}
     ${kpi('A receber', b(sum(toRec, x => x.ch.value)), late.length ? `<span class="warn">+ ${b(sum(late, x => x.ch.value))} atrasado (${late.length})</span>` : 'nada atrasado')}
@@ -5863,7 +5863,7 @@ function drawCalcResult() {
     ${p ? `<div class="sec"><h5>Previsto × real (IA)</h5>
       <div class="cmp"><div><small>IA prevista</small><b>${b(r.ai)}</b><small>${r.planImgs} imagens · ${r.planVids} vídeos</small></div>
       <div><small>IA gasta até agora</small><b class="${over ? 'warn' : 'ok'}">${b(r.realAi)}</b><small>${r.realImgs} imagens · ${r.realVids} vídeos</small></div></div>
-      <div class="hint" style="margin-top:8px">${over ? '⚠️ O gasto de IA já passou do previsto. Reveja o orçamento ou as tentativas.' : 'Tudo o que você gera neste projeto (Galeria, Canvas e Timeline) entra aqui sozinho.'} O gasto é uma estimativa pela tabela de preços; o valor oficial fica no painel do fornecedor.</div></div>` : `<div class="sec"><div class="hint">Escolha um projeto no topo para comparar o previsto com o que você já gastou de IA nele.</div></div>`}
+      <div class="hint" style="margin-top:8px">${over ? '⚠️ O gasto de IA já passou do previsto. Reveja o cálculo ou as tentativas.' : 'Tudo o que você gera neste projeto (Galeria, Canvas e Timeline) entra aqui sozinho.'} O gasto é uma estimativa pela tabela de preços; o valor oficial fica no painel do fornecedor.</div></div>` : `<div class="sec"><div class="hint">Escolha um projeto no topo para comparar o previsto com o que você já gastou de IA nele.</div></div>`}
     <div class="sec" style="display:flex;gap:8px;align-items:center"><button class="btn" data-c="print">${I.down} Exportar guia de preço</button><span class="hint">Abre a impressão. Escolha "Salvar como PDF".</span></div>
     <div class="hint">Preço sugerido a partir dos seus números. A decisão do preço final é sua.</div>`}`;
 }
@@ -6044,7 +6044,7 @@ function renderSidebar() {
     <button class="nav-item ${on('loose')}" data-v="loose" title="Sem projeto">${I.inbox}<span class="t">Sem projeto</span><span class="c">${countIn(i => !i.projectId)}</span></button>
     <button class="nav-item elbtn" data-a="elements" title="Elementos">${I.at}<span class="t">Elementos</span><span class="c">${state.elements.length}</span></button>
     <button class="nav-item" data-a="editor" title="Editar imagem">${sm(ICON_BRUSH)}<span class="t">Editar imagem</span></button>
-    <button class="nav-item" data-a="calc" title="Calculadora de orçamento">${sm(IC_CALC)}<span class="t">Orçamento</span></button>
+    <button class="nav-item" data-a="calc" title="Calculadora de preço">${sm(IC_CALC)}<span class="t">Calculadora</span></button>
     <div id="diskChip"></div>
     <div class="nav-sec">Projetos <button data-a="newProject" title="Novo projeto">${I.plus}</button></div>
     ${projs.length ? '' : '<div class="nav-empty">Nenhum projeto ainda. Crie um no + acima.</div>'}
@@ -6157,7 +6157,7 @@ function renderTitle() {
   const gf = cfg.galFilter || 'all', hasV = state.items.some(isVid);
   $('#vtitle').innerHTML = `<h1>${esc(h)}</h1>${crumb}<span class="cnt">${visibleItems().length}</span>
     <div class="gfilter">${[['all', 'Tudo'], ['img', 'Imagens'], ['vid', 'Vídeos']].map(([k, l]) => `<button data-gf="${k}" class="${gf === k ? 'on' : ''}">${l}</button>`).join('')}</div>
-    <div class="gtools2">${nFilters() && visibleItems().length ? `<button class="danger" data-gt="delf" title="Excluir tudo o que aparece com estes filtros">${I.trash} Excluir ${visibleItems().length}</button>` : ''}${view().kind === 'project' && proj(view().pid) ? `<button data-gt="calc" title="Orçamento deste projeto">${IC_CALC} Orçamento</button>` : ''}<button data-gt="sel" class="${SEL.on ? 'on' : ''}" title="Selecionar várias">${IC_SELECT} Selecionar</button><button data-gt="layout" title="Layout">${IC_LAYOUT} Layout</button><button data-gt="filters" class="${nFilters() ? 'on' : ''}" title="Filtros">${IC_FILTER} Filtros${nFilters() ? ` <span class="bdg">${nFilters()}</span>` : ''}</button></div>`;
+    <div class="gtools2">${nFilters() && visibleItems().length ? `<button class="danger" data-gt="delf" title="Excluir tudo o que aparece com estes filtros">${I.trash} Excluir ${visibleItems().length}</button>` : ''}${view().kind === 'project' && proj(view().pid) ? `<button data-gt="calc" title="Calculadora de preço deste projeto">${IC_CALC} Calculadora</button>` : ''}<button data-gt="sel" class="${SEL.on ? 'on' : ''}" title="Selecionar várias">${IC_SELECT} Selecionar</button><button data-gt="layout" title="Layout">${IC_LAYOUT} Layout</button><button data-gt="filters" class="${nFilters() ? 'on' : ''}" title="Filtros">${IC_FILTER} Filtros${nFilters() ? ` <span class="bdg">${nFilters()}</span>` : ''}</button></div>`;
   // abas de pastas dentro do projeto
   const ft = $('#ftabs');
   if (v.kind === 'project' && proj(v.pid)) {
