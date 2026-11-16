@@ -8,6 +8,7 @@ const fsp = fs.promises;
 const path = require('path');
 const crypto = require('crypto');
 const zlib = require('zlib');
+const { pipeline } = require('stream');
 
 const PORT = parseInt(process.env.PORT || '4848', 10);
 const ROOTS = (process.env.CURSOS || '/cursos').split(',').map(s => s.trim()).filter(Boolean);
@@ -19,7 +20,7 @@ const RESCAN_MIN = parseInt(process.env.VARREDURA_MINUTOS || '1440', 10);
 const VIDEO_EXT = new Set(['.mp4', '.m4v', '.mov', '.webm', '.mkv', '.avi', '.wmv', '.flv', '.ts', '.m2ts', '.mts', '.mpg', '.mpeg', '.3gp', '.vob']);
 const PDF_EXT = new Set(['.pdf']);
 const IMG_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
-const RES_DIR = /^(materia(l|is)( extras?| de apoio| complementar(es)?)?|recursos?|resources?|extras?|anexos?|arquivos?|downloads?|attachments?|apostilas?|bonus|bônus|links?)$/i;
+const RES_DIR = /^(materia(l|is)( extras?| de apoio| complementar(es)?)?|recursos?|resources?|extras?|anexos?|arquivos?|downloads?|attachments?|apostilas?|bonus|bônus|links?|exerc[ií]cios?|projetos?|assets|fontes|brushes|pinc[eé]is)$/i;
 const COVER_NAMES = /^(capa|cover|folder|poster|thumb|thumbnail)\.(jpe?g|png|webp)$/i;
 const LINKS_TXT = /^links?.*\.txt$/i;
 const SKIP = /^(\.|@eaDir$|#recycle$|\$RECYCLE|System Volume Information|desktop\.ini$|Thumbs\.db$)/i;
@@ -193,6 +194,7 @@ function addProblem(dir, reason, extra = {}) {
 let hdTrouble = 0;            // erros de "disco sumiu" na varredura atual
 let dirsRead = 0;
 const HD_ERR = new Set(['ENOENT', 'EIO', 'ENOTCONN', 'ESTALE', 'ENXIO', 'ENODEV']);
+const NAME_MSG = 'O nome tem emoji ou símbolo especial que o umbrel não consegue abrir neste HD (formato do Mac). Renomeie a pasta no Mac, tirando os caracteres do começo do nome.';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 async function listDir(dir) {
@@ -215,6 +217,11 @@ async function listDir(dir) {
     }
     return out.sort((a, b) => natSort(a.name, b.name));
   } catch (e) {
+    if (e.code === 'ENOENT' && /\?/.test(path.basename(dir))) {
+      // HD do Mac (HFS+): nomes com emoji ou símbolos especiais chegam como "????" e não podem ser abertos
+      addProblem(dir, NAME_MSG);
+      return [];
+    }
     if (scanning && HD_ERR.has(e.code)) hdTrouble++;
     addProblem(dir, ERR_MSG[e.code] || ('Não consegui ler a pasta (' + (e.code || e.message) + ')'));
     return [];
@@ -613,12 +620,18 @@ async function serveFile(req, res, abs, download) {
     end = Math.min(end, st.size - 1);
     res.writeHead(206, Object.assign(headers, { 'Content-Range': `bytes ${start}-${end}/${st.size}`, 'Content-Length': end - start + 1 }));
     if (req.method === 'HEAD') return res.end();
-    fs.createReadStream(abs, { start, end }).pipe(res);
+    streamTo(res, fs.createReadStream(abs, { start, end }));
   } else {
     res.writeHead(200, Object.assign(headers, { 'Content-Length': st.size }));
     if (req.method === 'HEAD') return res.end();
-    fs.createReadStream(abs).pipe(res);
+    streamTo(res, fs.createReadStream(abs));
   }
+}
+// Envia o arquivo e libera tudo (arquivo e conexão) quando o navegador desiste do vídeo.
+// Com .pipe() as conexões abandonadas ficavam presas e esgotavam a memória de rede do umbrel.
+function streamTo(res, rs) {
+  pipeline(rs, res, () => { rs.destroy(); });
+  res.on('close', () => { if (!rs.destroyed) rs.destroy(); });
 }
 
 function addActivity(courseId, seconds) {
