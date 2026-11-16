@@ -140,8 +140,12 @@
         <span class="muted" style="font-size:13px">Últimos 7 dias</span>
         <strong>${fmtDur(sem.seconds) || '0min'}</strong>
         <span class="muted" style="font-size:12px">${plural(sem.lessonsDone, 'aula concluída', 'aulas concluídas')}</span>
-        <button class="btn peq suave" data-acao="varrer" style="margin-top:6px">${ic('atualizar', 16)}Atualizar biblioteca</button>
+        ${S.lib && S.lib.scanning
+          ? `<span class="varrendo">${ic('atualizar', 14)}Lendo pastas… ${plural(S.lib.scanFound || 0, 'curso', 'cursos')}</span>`
+          : `<button class="btn peq suave" data-acao="varrer" style="margin-top:6px">${ic('atualizar', 16)}Atualizar biblioteca</button>`}
+        ${S.lib && S.lib.problemsCount ? `<button class="btn peq aviso-btn" data-acao="diagnostico">⚠ ${plural(S.lib.problemsCount, 'pasta ignorada', 'pastas ignoradas')}</button>` : ''}
       </div>`;
+    if (S.lib && S.lib.scanning) acompanharVarredura();
     $('#barra-celular').innerHTML = `
       <a class="${r === '/' ? 'ativo' : ''}" href="#/">${ic('inicio', 22)}Início</a>
       <a class="${isExp ? 'ativo' : ''}" href="#/explorar">${ic('explorar', 22)}Explorar</a>
@@ -614,6 +618,38 @@
     v.src = '/f/' + c.needsCover;
   }
 
+  // ---------- varredura em andamento ----------
+  let acompanhando = false;
+  function acompanharVarredura() {
+    if (acompanhando) return;
+    acompanhando = true;
+    const passo = async () => {
+      let st;
+      try { st = await api('/api/diagnostico'); } catch (_) { acompanhando = false; return; }
+      if (st.scanning) {
+        const el = document.querySelector('.varrendo');
+        if (el) el.lastChild.textContent = 'Lendo pastas… ' + plural(st.scanFound || 0, 'curso', 'cursos');
+        setTimeout(passo, 3000);
+      } else { acompanhando = false; invalidar(); rota(); }
+    };
+    setTimeout(passo, 3000);
+  }
+
+  async function verDiagnostico() {
+    const d = await api('/api/diagnostico');
+    const linhas = d.problems.map(p => `<li><b>${esc(p.path.replace(/^\//, '').split('/').join(' › '))}</b>
+        <span>${esc(p.reason)}${p.exts && p.exts.length ? ' · arquivos: ' + p.exts.map(x => esc(x.ext) + ' (' + x.n + ')').join(', ') : ''}</span></li>`).join('');
+    const semPerm = d.problems.some(p => /permiss/i.test(p.reason));
+    abrirModal(`<div class="modal-cab"><div style="min-width:0"><b>Diagnóstico da biblioteca</b>
+        <small>${plural(d.courses, 'curso encontrado', 'cursos encontrados')} · ${plural(d.problems.length, 'pasta ignorada', 'pastas ignoradas')}</small></div>
+        <button class="btn-ico peq" data-acao="fechar" aria-label="Fechar">${ic('x', 16)}</button></div>
+      <div class="modal-corpo diag">
+        ${semPerm ? `<p class="diag-dica">Algumas pastas estão sem permissão de leitura para o app. Atualize o app pela loja do umbrel (a versão 1.0.3 em diante lê essas pastas).</p>` : ''}
+        <p class="muted">Pastas de cursos: ${d.roots.map(r => esc(r.path) + (r.exists ? '' : ' (não ligada)')).join(', ')}</p>
+        ${linhas ? `<ul class="diag-lista">${linhas}</ul>` : '<p>Nenhuma pasta ignorada na última leitura.</p>'}
+      </div>`);
+  }
+
   // ---------- modais ----------
   function abrirModal(html, cls = '') {
     const raiz = $('#modal-raiz');
@@ -682,7 +718,8 @@
     const a = t.dataset.acao;
     try {
       if (a === 'tema') trocarTema();
-      else if (a === 'varrer') { await api('/api/varrer', { method: 'POST' }); aviso('Atualizando a biblioteca…'); setTimeout(() => { invalidar(); rota(); }, 2500); }
+      else if (a === 'varrer') { await api('/api/varrer', { method: 'POST' }); aviso('Atualizando a biblioteca…'); setTimeout(() => { invalidar(); rota(); }, 1500); }
+      else if (a === 'diagnostico') verDiagnostico();
       else if (a === 'fechar' || (a === 'fechar-fundo' && e.target === t)) fecharModal();
       else if (a === 'ver') verMaterial(t.dataset.id, t.dataset.tipo, t.dataset.nome);
       else if (a === 'zoom') t.classList.toggle('zoom');

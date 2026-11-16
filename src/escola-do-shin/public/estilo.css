@@ -285,3 +285,13 @@ section.bloco{display:flex;flex-direction:column;gap:16px;margin-bottom:40px}
   .modal-fundo{padding:0;align-items:stretch}
   .modal{border-radius:0;max-width:none;min-height:100%}
 }
+/* 1.0.3: varredura e diagnóstico */
+.varrendo{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:13px;font-weight:600;color:var(--accent)}
+.varrendo svg{animation:girar 1.2s linear infinite}
+@keyframes girar{to{transform:rotate(360deg)}}
+.aviso-btn{background:var(--amber-soft);color:var(--amber);border:0}
+.diag{display:flex;flex-direction:column;gap:12px;padding:16px 20px 20px;max-height:70vh;overflow:auto}
+.diag-dica{margin:0;padding:12px 14px;border-radius:12px;background:var(--amber-soft);color:var(--amber);font-weight:600;font-size:14px}
+.diag-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.diag-lista li{padding:10px 12px;border-radius:12px;background:var(--card);display:flex;flex-direction:column;gap:2px;font-size:14px;word-break:break-word}
+.diag-lista span{color:var(--muted);font-size:13px}

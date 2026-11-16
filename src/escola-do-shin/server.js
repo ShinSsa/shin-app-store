@@ -15,7 +15,7 @@ const DATA_DIR = process.env.DADOS || path.join(__dirname, 'dados');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const RESCAN_MIN = parseInt(process.env.VARREDURA_MINUTOS || '10', 10);
 
-const VIDEO_EXT = new Set(['.mp4', '.m4v', '.mov', '.webm', '.mkv']);
+const VIDEO_EXT = new Set(['.mp4', '.m4v', '.mov', '.webm', '.mkv', '.avi', '.wmv', '.flv', '.ts', '.m2ts', '.mts', '.mpg', '.mpeg', '.3gp', '.vob']);
 const PDF_EXT = new Set(['.pdf']);
 const IMG_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
 const RES_DIR = /^(materia(l|is)( extras?| de apoio| complementar(es)?)?|recursos?|resources?|extras?|anexos?|arquivos?|downloads?|attachments?|apostilas?|bonus|bônus|links?)$/i;
@@ -28,6 +28,8 @@ const MIME = {
   '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.woff2': 'font/woff2', '.mp4': 'video/mp4',
   '.m4v': 'video/mp4', '.mov': 'video/quicktime', '.webm': 'video/webm', '.mkv': 'video/x-matroska',
+  '.avi': 'video/x-msvideo', '.wmv': 'video/x-ms-wmv', '.flv': 'video/x-flv', '.ts': 'video/mp2t',
+  '.m2ts': 'video/mp2t', '.mts': 'video/mp2t', '.mpg': 'video/mpeg', '.mpeg': 'video/mpeg', '.3gp': 'video/3gpp', '.vob': 'video/mpeg',
   '.pdf': 'application/pdf', '.txt': 'text/plain; charset=utf-8', '.zip': 'application/zip',
   '.webmanifest': 'application/manifest+json', '.vtt': 'text/vtt; charset=utf-8'
 };
@@ -170,11 +172,47 @@ let scanning = false, lastScan = null, scanError = null;
 
 function fileId(abs) { const id = sha(abs).slice(0, 16); files.set(id, abs); return id; }
 
+// ---------- diagnóstico da varredura ----------
+let problems = [];            // pastas que a última varredura não conseguiu usar
+let scanProblems = null;      // lista em montagem durante a varredura
+let scanFound = 0;            // cursos achados até agora na varredura em andamento
+const ERR_MSG = {
+  EACCES: 'Sem permissão para ler esta pasta', EPERM: 'Sem permissão para ler esta pasta',
+  ENOENT: 'A pasta sumiu durante a leitura (HD desconectado?)', EIO: 'Erro de leitura no disco'
+};
+function addProblem(dir, reason, extra = {}) {
+  if (!scanProblems || scanProblems.length >= 500) return;
+  if (scanProblems.some(p => p.path === dir)) return;
+  scanProblems.push({ path: dir, reason, ...extra });
+}
+
 async function listDir(dir) {
   try {
     const ents = await fsp.readdir(dir, { withFileTypes: true });
-    return ents.filter(e => !SKIP.test(e.name)).sort((a, b) => natSort(a.name, b.name));
-  } catch (e) { return []; }
+    const out = [];
+    for (const e of ents) {
+      if (SKIP.test(e.name)) continue;
+      // alguns discos não informam o tipo; descobre com stat
+      if (!e.isFile() && !e.isDirectory()) {
+        try {
+          const st = await fsp.stat(path.join(dir, e.name));
+          out.push({ name: e.name, isFile: () => st.isFile(), isDirectory: () => st.isDirectory() });
+        } catch (err) { if (err.code === 'EACCES' || err.code === 'EPERM') addProblem(path.join(dir, e.name), ERR_MSG.EACCES); }
+        continue;
+      }
+      out.push(e);
+    }
+    return out.sort((a, b) => natSort(a.name, b.name));
+  } catch (e) {
+    addProblem(dir, ERR_MSG[e.code] || ('Não consegui ler a pasta (' + (e.code || e.message) + ')'));
+    return [];
+  }
+}
+
+async function extSummary(dir) {
+  const counts = {};
+  for (const f of await collectFiles(dir)) { const x = extOf(f) || '(sem extensão)'; counts[x] = (counts[x] || 0) + 1; }
+  return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([ext, n]) => ({ ext, n }));
 }
 function isMedia(name) { const x = extOf(name); return VIDEO_EXT.has(x) || PDF_EXT.has(x); }
 
@@ -316,7 +354,7 @@ async function buildCourse(dir, trail, root) {
     courseMaterials.push(...rootPart.materials); courseLinks.push(...rootPart.links);
   }
   const allLessons = modules.flatMap(m => m.lessons);
-  if (!allLessons.length) return null;
+  if (!allLessons.length) { addProblem(dir, 'Nenhuma aula encontrada', { exts: await extSummary(dir) }); return null; }
   const videoCount = allLessons.filter(l => l.type === 'video').length;
   return {
     path: dir, root,
@@ -338,10 +376,14 @@ async function classify(dir, trail, root, out) {
   const ents = await listDir(dir);
   const forceCourse = ents.some(e => e.isFile() && /^curso\.json$/i.test(e.name));
   const forceSchool = ents.some(e => e.isFile() && /^escola\.json$/i.test(e.name));
-  if (forceCourse) { const c = await buildCourse(dir, trail, root); if (c) out.push(c); return; }
+  if (forceCourse) { const c = await buildCourse(dir, trail, root); if (c) { out.push(c); scanFound = out.length; } return; }
   const d = await mediaDepth(dir);
-  if (d < 0) return;
-  if (!forceSchool && d <= 1) { const c = await buildCourse(dir, trail, root); if (c) out.push(c); return; }
+  if (d < 0) {
+    if (!(scanProblems || []).some(p => dir.startsWith(p.path + path.sep) || p.path === dir))
+      addProblem(dir, 'Nenhum vídeo ou PDF reconhecido', { exts: await extSummary(dir) });
+    return;
+  }
+  if (!forceSchool && d <= 1) { const c = await buildCourse(dir, trail, root); if (c) { out.push(c); scanFound = out.length; } return; }
   let name = path.basename(dir);
   if (forceSchool) { try { const j = JSON.parse(await fsp.readFile(path.join(dir, 'escola.json'), 'utf8')); name = j.nome || j.name || name; } catch (_) { } }
   for (const e of ents) {
@@ -380,12 +422,14 @@ function matchIds(found) {
 async function scan() {
   if (scanning) return;
   scanning = true; scanError = null;
+  scanProblems = []; scanFound = 0;
   const t0 = Date.now();
   try {
     files.clear();
     const found = [];
     for (const root of ROOTS) {
       if (!fs.existsSync(root)) continue;
+      try { await fsp.readdir(root); } catch (e) { addProblem(root, ERR_MSG[e.code] || e.message); continue; }
       for (const e of await listDir(root)) {
         if (e.isDirectory()) await classify(path.join(root, e.name), [], root, found);
       }
@@ -395,9 +439,11 @@ async function scan() {
     byId = new Map(found.map(c => [c.id, c]));
     lastScan = new Date().toISOString();
     saveDb();
-    console.log(`Varredura: ${found.length} cursos em ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+    problems = scanProblems;
+    console.log(`Varredura: ${found.length} cursos em ${((Date.now() - t0) / 1000).toFixed(1)}s` + (problems.length ? ` | ${problems.length} pastas ignoradas` : ''));
+    for (const p of problems.slice(0, 50)) console.log('  ignorada:', p.path, '-', p.reason);
   } catch (e) { scanError = e.message; console.error('Erro na varredura:', e); }
-  finally { scanning = false; }
+  finally { scanning = false; scanProblems = null; }
 }
 
 // ---------- montagem das respostas ----------
@@ -595,7 +641,7 @@ route('GET', /^\/api\/biblioteca$/, async (req, res) => {
     tags: [...new Set(list.flatMap(c => c.tags))].sort(natSort),
     suggestions: suggestions(list),
     week: weekStats(),
-    scanning, lastScan, scanError, roots: ROOTS, notesCount: db.notes.length
+    scanning, scanFound, lastScan, scanError, roots: ROOTS, notesCount: db.notes.length, problemsCount: problems.length
   });
 });
 route('GET', /^\/api\/curso\/(\w+)$/, async (req, res, m) => {
@@ -691,6 +737,14 @@ route('POST', /^\/api\/capa\/(\w+)$/, async (req, res, m) => {
   send(res, 200, { ok: true });
 });
 route('POST', /^\/api\/varrer$/, async (req, res) => { scan(); send(res, 200, { ok: true }); });
+route('GET', /^\/api\/diagnostico$/, async (req, res) => {
+  const rel = p => { const r = ROOTS.find(x => p === x || p.startsWith(x + path.sep)); return r ? (r + p.slice(r.length)) : p; };
+  send(res, 200, {
+    scanning, scanFound, lastScan, scanError, roots: ROOTS.map(r => ({ path: r, exists: fs.existsSync(r) })),
+    courses: library.length, uid: typeof process.getuid === 'function' ? process.getuid() : null,
+    problems: problems.map(p => ({ ...p, path: rel(p.path) }))
+  });
+});
 route('GET', /^\/api\/estado$/, async (req, res) => send(res, 200, { scanning, lastScan, scanError, courses: library.length }));
 route('GET', /^\/f\/(\w+)$/, async (req, res, m, url) => {
   const abs = files.get(m[1]);
