@@ -173,6 +173,7 @@ let scanning = false, lastScan = null, scanError = null;
 function fileId(abs) { const id = sha(abs).slice(0, 16); files.set(id, abs); return id; }
 
 // ---------- diagnóstico da varredura ----------
+const durCache = new Map();   // duração dos vídeos já lidos (evita reler o HD a cada varredura)
 let problems = [];            // pastas que a última varredura não conseguiu usar
 let scanProblems = null;      // lista em montagem durante a varredura
 let scanFound = 0;            // cursos achados até agora na varredura em andamento
@@ -288,7 +289,11 @@ async function buildFolder(dir, scope, isCourseRoot) {
       }
     }
     let duration = null;
-    if (['.mp4', '.m4v', '.mov'].includes(extOf(e.name))) duration = await mp4Duration(abs);
+    if (['.mp4', '.m4v', '.mov'].includes(extOf(e.name))) {
+      const dk = abs + '|' + size;
+      if (durCache.has(dk)) duration = durCache.get(dk);
+      else { duration = await mp4Duration(abs); durCache.set(dk, duration); }
+    }
     lessons.push({
       key: sha(e.name + '|' + size).slice(0, 16), fileId: fileId(abs), file: e.name, type,
       num: ct.num, title: ct.title || stem, size, duration, materials: mats,

@@ -45,7 +45,10 @@
     return c.cover ? `background-image:url('${c.cover}')` : `background-image:var(--c${hashN(c.id, 6) + 1})`;
   }
   function capaHTML(c, extra = '') {
-    return `<div class="capa" style="${capaStyle(c)}">${c.cover ? '' : `<span class="iniciais" aria-hidden="true">${esc(iniciais(c.title))}</span>`}${extra}</div>`;
+    // a imagem só é carregada quando o card aparece na tela (ver observarCapas)
+    const ph = `background-image:var(--c${hashN(c.id, 6) + 1})`;
+    const attrs = c.cover ? ` data-bg="${esc(c.cover)}"` : (c.needsCover ? ` data-cid="${c.id}"` : '');
+    return `<div class="capa" style="${ph}"${attrs}>${c.cover ? '' : `<span class="iniciais" aria-hidden="true">${esc(iniciais(c.title))}</span>`}${extra}</div>`;
   }
   function plural(n, a, b) { return n + ' ' + (n === 1 ? a : b); }
   function qs(h) { const i = h.indexOf('?'); return new URLSearchParams(i >= 0 ? h.slice(i + 1) : ''); }
@@ -304,7 +307,7 @@
       </form>
       ${notasHtml}
       ${lib.courses.length ? `<div class="resultado">${plural(list.length, 'curso encontrado', 'cursos encontrados')}</div>
-        ${list.length ? `<div class="grade">${list.map(cardCurso).join('')}</div>` : `<div class="vazio"><b>Nada por aqui</b><span>Tente mudar ou limpar os filtros.</span></div>`}` : vazioBiblioteca(lib)}`;
+        ${list.length ? gradePaginada(list, cardCurso) : `<div class="vazio"><b>Nada por aqui</b><span>Tente mudar ou limpar os filtros.</span></div>`}` : vazioBiblioteca(lib)}`;
     gerarCapas(list);
   }
 
@@ -328,10 +331,10 @@
     renderMenu();
     const sem = lib.courses.filter(c => !c.category);
     conteudo.innerHTML = topo('Para organizar', sem.length ? 'Cursos novos sem categoria. Clique para definir categoria, subcategoria e tags.' : '') +
-      (sem.length ? `<div class="grade">${sem.map(c => `<button class="card" data-acao="editar" data-id="${c.id}" style="border:0;text-align:left;color:inherit">
+      (sem.length ? gradePaginada(sem, c => `<button class="card" data-acao="editar" data-id="${c.id}" style="border:0;text-align:left;color:inherit">
           ${capaHTML(c, `<span class="selo">${c.kind === 'pdf' ? 'PDF' : 'Vídeo'}</span>`)}
           <div class="card-txt"><b>${esc(c.title)}</b><small>${esc(c.school || 'Curso avulso')} · ${plural(c.lessons, 'aula', 'aulas')}</small>
-          <span class="btn peq suave" style="align-self:flex-start;margin-top:6px">${ic('editar', 14)}Organizar</span></div></button>`).join('')}</div>`
+          <span class="btn peq suave" style="align-self:flex-start;margin-top:6px">${ic('editar', 14)}Organizar</span></div></button>`)
         : `<div class="vazio">${ic('check', 36)}<b>Tudo organizado</b><span>Quando você colocar cursos novos na pasta, eles aparecem aqui.</span></div>`);
     gerarCapas(sem);
   }
@@ -575,11 +578,53 @@
       `<button style="left:${Math.min(100, n.t / v.duration * 100)}%" data-acao="ir-tempo" data-t="${n.t}" title="${esc(fmtTempo(n.t) + ' — ' + n.text.slice(0, 60))}" aria-label="Anotação em ${fmtTempo(n.t)}"></button>`).join('');
   }
 
-  // ---------- capas automáticas ----------
-  const filaCapas = []; let gerando = false; const tentadas = new Set();
+  // ---------- listas grandes ----------
+  const POR_PAGINA = 48;
+  const restos = {};
+  function gradePaginada(list, render) {
+    const id = 'g' + Math.random().toString(36).slice(2, 8);
+    restos[id] = { list, render, n: POR_PAGINA };
+    return `<div class="grade" id="${id}">${list.slice(0, POR_PAGINA).map(render).join('')}</div>` +
+      (list.length > POR_PAGINA ? `<div class="mais"><button class="btn suave" data-acao="mais" data-grade="${id}">Mostrar mais (${list.length - POR_PAGINA})</button></div>` : '');
+  }
+  function mostrarMais(btn) {
+    const r = restos[btn.dataset.grade], g = document.getElementById(btn.dataset.grade);
+    if (!r || !g) return;
+    g.insertAdjacentHTML('beforeend', r.list.slice(r.n, r.n + POR_PAGINA).map(r.render).join(''));
+    r.n += POR_PAGINA;
+    const falta = r.list.length - r.n;
+    if (falta > 0) btn.textContent = `Mostrar mais (${falta})`; else btn.parentNode.remove();
+    observarCapas();
+  }
+
+  // ---------- capas: carregar só o que está na tela ----------
+  const vistos = new IntersectionObserver(ents => {
+    for (const e of ents) {
+      if (!e.isIntersecting) continue;
+      const el = e.target; vistos.unobserve(el);
+      if (el.dataset.bg) { el.style.backgroundImage = `url('${el.dataset.bg}')`; delete el.dataset.bg; }
+      else if (el.dataset.cid) enfileirarCapa(el.dataset.cid);
+    }
+  }, { rootMargin: '300px' });
+  function observarCapas() {
+    document.querySelectorAll('.capa[data-bg], .capa[data-cid]').forEach(el => { if (!el._obs) { el._obs = 1; vistos.observe(el); } });
+  }
+  new MutationObserver(() => observarCapas()).observe(document.body, { childList: true, subtree: true });
+
+  // ---------- capas automáticas (quadro do primeiro vídeo) ----------
+  // Só para cursos que aparecem na tela, um de cada vez, com um único <video> reaproveitado
+  // e um limite por sessão — o Safari trava se abrir centenas de vídeos seguidos.
+  const MAX_CAPAS = 30;
+  const filaCapas = []; let gerando = false; let geradas = 0;
+  const tentadas = new Set(); const conhecidos = new Map();
+  let vCapa = null;
   function gerarCapas(lista) {
-    for (const c of lista) if (!c.cover && c.needsCover && !tentadas.has(c.id)) { tentadas.add(c.id); filaCapas.push(c); }
-    proximaCapa();
+    for (const c of lista) if (!c.cover && c.needsCover) conhecidos.set(c.id, c);
+  }
+  function enfileirarCapa(id) {
+    const c = conhecidos.get(id) || (S.lib && S.lib.courses.find(x => x.id === id));
+    if (!c || c.cover || !c.needsCover || tentadas.has(id) || geradas >= MAX_CAPAS) return;
+    tentadas.add(id); filaCapas.push(c); proximaCapa();
   }
   function capturarDoVideo(v, id) {
     return new Promise(resolve => {
@@ -588,6 +633,7 @@
         const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
         cv.getContext('2d').drawImage(v, 0, 0, w, h);
         cv.toBlob(b => {
+          cv.width = cv.height = 0;
           if (!b) return resolve(false);
           fetch('/api/capa/' + id, { method: 'POST', body: b, headers: { 'Content-Type': 'image/jpeg' } }).then(r => resolve(r.ok)).catch(() => resolve(false));
         }, 'image/jpeg', 0.82);
@@ -595,26 +641,28 @@
     });
   }
   function proximaCapa() {
-    if (gerando || !filaCapas.length) return;
-    gerando = true;
+    if (gerando || !filaCapas.length || geradas >= MAX_CAPAS) return;
+    if (document.hidden || S.aula) { setTimeout(proximaCapa, 3000); return; }   // não disputa com a aula aberta
+    gerando = true; geradas++;
     const c = filaCapas.shift();
-    const v = document.createElement('video');
-    v.muted = true; v.preload = 'metadata'; v.playsInline = true; v.crossOrigin = 'anonymous';
+    if (!vCapa) { vCapa = document.createElement('video'); vCapa.muted = true; vCapa.preload = 'metadata'; vCapa.playsInline = true; }
+    const v = vCapa;
     let feito = false;
+    const limpar = () => { v.onloadedmetadata = v.onseeked = v.onerror = null; v.pause(); v.removeAttribute('src'); v.load(); };
     const fim = (ok) => {
-      if (feito) return; feito = true; clearTimeout(to);
-      v.removeAttribute('src'); v.load(); gerando = false;
+      if (feito) return; feito = true; clearTimeout(to); limpar(); gerando = false;
       if (ok) {
         const url = '/capa/' + c.id + '?v=' + Date.now();
+        c.cover = url;
         if (S.lib) { const x = S.lib.courses.find(y => y.id === c.id); if (x) x.cover = url; }
-        document.querySelectorAll(`a[href="#/curso/${c.id}"] .capa, [data-id="${c.id}"] .capa`).forEach(el => { el.style.backgroundImage = `url('${url}')`; const i = el.querySelector('.iniciais'); if (i) i.remove(); });
+        document.querySelectorAll(`.capa[data-cid="${c.id}"]`).forEach(el => { el.style.backgroundImage = `url('${url}')`; const i = el.querySelector('.iniciais'); if (i) i.remove(); });
       }
-      setTimeout(proximaCapa, 300);
+      setTimeout(proximaCapa, 600);
     };
-    const to = setTimeout(() => fim(false), 20000);
-    v.addEventListener('loadedmetadata', () => { v.currentTime = Math.min(Math.max(5, v.duration * 0.12), 90, Math.max(v.duration - 1, 0)); });
-    v.addEventListener('seeked', () => capturarDoVideo(v, c.id).then(fim));
-    v.addEventListener('error', () => fim(false));
+    const to = setTimeout(() => fim(false), 15000);
+    v.onloadedmetadata = () => { v.currentTime = Math.min(Math.max(5, v.duration * 0.12), 90, Math.max(v.duration - 1, 0)); };
+    v.onseeked = () => capturarDoVideo(v, c.id).then(fim);
+    v.onerror = () => fim(false);
     v.src = '/f/' + c.needsCover;
   }
 
@@ -720,6 +768,7 @@
       if (a === 'tema') trocarTema();
       else if (a === 'varrer') { await api('/api/varrer', { method: 'POST' }); aviso('Atualizando a biblioteca…'); setTimeout(() => { invalidar(); rota(); }, 1500); }
       else if (a === 'diagnostico') verDiagnostico();
+      else if (a === 'mais') mostrarMais(t);
       else if (a === 'fechar' || (a === 'fechar-fundo' && e.target === t)) fecharModal();
       else if (a === 'ver') verMaterial(t.dataset.id, t.dataset.tipo, t.dataset.nome);
       else if (a === 'zoom') t.classList.toggle('zoom');

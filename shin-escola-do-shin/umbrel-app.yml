@@ -4,7 +4,7 @@ name: Escola do Shin
 tagline: Sua biblioteca de cursos em vídeo e PDF, com progresso e anotações
 icon: https://raw.githubusercontent.com/ShinSsa/shin-app-store/master/assets/escola-do-shin.png
 category: media
-version: "1.0.3"
+version: "1.0.4"
 port: 8792
 description: >-
   Lê a sua pasta de cursos e monta uma biblioteca no estilo Domestika:
@@ -27,7 +27,7 @@ repo: https://github.com/ShinSsa/shin-app-store
 support: https://github.com/ShinSsa/shin-app-store/issues
 gallery: []
 releaseNotes: >-
-  Lê pastas de cursos antigas do HD externo que antes eram puladas por falta de permissão. Nova tela "pastas ignoradas" mostra o que não foi lido e por quê. Mostra o andamento da leitura da biblioteca. Reconhece também AVI, WMV, FLV, TS e MPG (para baixar).
+  Corrige o travamento do Safari com bibliotecas grandes: capas carregam só quando aparecem na tela, a geração automática de capas trabalha apenas nos cursos visíveis e as listas grandes mostram 48 cursos por vez (botão "Mostrar mais").
 dependencies: []
 path: ""
 defaultUsername: ""
