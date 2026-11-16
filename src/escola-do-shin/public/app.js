@@ -146,6 +146,8 @@
         ${S.lib && S.lib.scanning
           ? `<span class="varrendo">${ic('atualizar', 14)}Lendo pastas… ${plural(S.lib.scanFound || 0, 'curso', 'cursos')}</span>`
           : `<button class="btn peq suave" data-acao="varrer" style="margin-top:6px">${ic('atualizar', 16)}Atualizar biblioteca</button>`}
+        ${S.lib && S.lib.scanError ? `<span class="erro-varredura">⚠ ${esc(S.lib.scanError)}</span>` : ''}
+        ${S.lib && S.lib.lastScan && !S.lib.scanning ? `<span class="muted" style="font-size:11.5px">Última leitura: ${new Date(S.lib.lastScan).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>` : ''}
         ${S.lib && S.lib.problemsCount ? `<button class="btn peq aviso-btn" data-acao="diagnostico">⚠ ${plural(S.lib.problemsCount, 'pasta ignorada', 'pastas ignoradas')}</button>` : ''}
       </div>`;
     if (S.lib && S.lib.scanning) acompanharVarredura();

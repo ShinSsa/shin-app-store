@@ -4,7 +4,7 @@ name: Escola do Shin
 tagline: Sua biblioteca de cursos em vídeo e PDF, com progresso e anotações
 icon: https://raw.githubusercontent.com/ShinSsa/shin-app-store/master/assets/escola-do-shin.png
 category: media
-version: "1.0.4"
+version: "1.0.5"
 port: 8792
 description: >-
   Lê a sua pasta de cursos e monta uma biblioteca no estilo Domestika:
@@ -27,7 +27,7 @@ repo: https://github.com/ShinSsa/shin-app-store
 support: https://github.com/ShinSsa/shin-app-store/issues
 gallery: []
 releaseNotes: >-
-  Corrige o travamento do Safari com bibliotecas grandes: capas carregam só quando aparecem na tela, a geração automática de capas trabalha apenas nos cursos visíveis e as listas grandes mostram 48 cursos por vez (botão "Mostrar mais").
+  Mais leve com o HD externo: relê as pastas 1 vez por dia (ou quando você clica em Atualizar), abre na hora ao reiniciar sem reler o HD, lê com pausas curtas para não sobrecarregar o disco e, se o HD cair durante a leitura, mantém a lista anterior e avisa. Os cursos continuam abrindo enquanto a biblioteca é atualizada.
 dependencies: []
 path: ""
 defaultUsername: ""

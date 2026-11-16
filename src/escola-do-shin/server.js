@@ -13,7 +13,8 @@ const PORT = parseInt(process.env.PORT || '4848', 10);
 const ROOTS = (process.env.CURSOS || '/cursos').split(',').map(s => s.trim()).filter(Boolean);
 const DATA_DIR = process.env.DADOS || path.join(__dirname, 'dados');
 const PUBLIC_DIR = path.join(__dirname, 'public');
-const RESCAN_MIN = parseInt(process.env.VARREDURA_MINUTOS || '10', 10);
+// relê as pastas 1 vez por dia (ou quando você clica em "Atualizar biblioteca")
+const RESCAN_MIN = parseInt(process.env.VARREDURA_MINUTOS || '1440', 10);
 
 const VIDEO_EXT = new Set(['.mp4', '.m4v', '.mov', '.webm', '.mkv', '.avi', '.wmv', '.flv', '.ts', '.m2ts', '.mts', '.mpg', '.mpeg', '.3gp', '.vob']);
 const PDF_EXT = new Set(['.pdf']);
@@ -165,12 +166,14 @@ function parseLinksTxt(text) {
 }
 
 // ---------- varredura ----------
-const files = new Map();      // fileId -> caminho absoluto
+let files = new Map();        // fileId -> caminho absoluto (da última varredura completa)
+let scanFiles = null;         // mapa em montagem durante a varredura (o antigo continua valendo até ela acabar)
+const LIB_CACHE = path.join(DATA_DIR, 'biblioteca.json');
 let library = [];             // cursos encontrados
 let byId = new Map();
 let scanning = false, lastScan = null, scanError = null;
 
-function fileId(abs) { const id = sha(abs).slice(0, 16); files.set(id, abs); return id; }
+function fileId(abs) { const id = sha(abs).slice(0, 16); (scanFiles || files).set(id, abs); return id; }
 
 // ---------- diagnóstico da varredura ----------
 const durCache = new Map();   // duração dos vídeos já lidos (evita reler o HD a cada varredura)
@@ -187,7 +190,14 @@ function addProblem(dir, reason, extra = {}) {
   scanProblems.push({ path: dir, reason, ...extra });
 }
 
+let hdTrouble = 0;            // erros de "disco sumiu" na varredura atual
+let dirsRead = 0;
+const HD_ERR = new Set(['ENOENT', 'EIO', 'ENOTCONN', 'ESTALE', 'ENXIO', 'ENODEV']);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
 async function listDir(dir) {
+  // leitura gentil: uma pausa curta a cada 15 pastas para não sobrecarregar o HD USB
+  if (scanning && ++dirsRead % 15 === 0) await sleep(25);
   try {
     const ents = await fsp.readdir(dir, { withFileTypes: true });
     const out = [];
@@ -205,6 +215,7 @@ async function listDir(dir) {
     }
     return out.sort((a, b) => natSort(a.name, b.name));
   } catch (e) {
+    if (scanning && HD_ERR.has(e.code)) hdTrouble++;
     addProblem(dir, ERR_MSG[e.code] || ('Não consegui ler a pasta (' + (e.code || e.message) + ')'));
     return [];
   }
@@ -427,28 +438,63 @@ function matchIds(found) {
 async function scan() {
   if (scanning) return;
   scanning = true; scanError = null;
-  scanProblems = []; scanFound = 0;
+  scanProblems = []; scanFound = 0; hdTrouble = 0; dirsRead = 0;
+  scanFiles = new Map();
   const t0 = Date.now();
   try {
-    files.clear();
     const found = [];
     for (const root of ROOTS) {
       if (!fs.existsSync(root)) continue;
-      try { await fsp.readdir(root); } catch (e) { addProblem(root, ERR_MSG[e.code] || e.message); continue; }
+      try { await fsp.readdir(root); } catch (e) { if (HD_ERR.has(e.code)) hdTrouble++; addProblem(root, ERR_MSG[e.code] || e.message); continue; }
       for (const e of await listDir(root)) {
         if (e.isDirectory()) await classify(path.join(root, e.name), [], root, found);
       }
     }
+    if (hdTrouble > 0 && library.length) {
+      // o HD sumiu no meio da leitura: mantém a lista anterior em vez de mostrar uma pela metade
+      lastAttempt = Date.now();
+      scanError = 'O HD parou de responder durante a leitura. A lista anterior foi mantida. Confira se o HD aparece no Files, reinicie o app (botão direito › Reiniciar) e clique em Atualizar.';
+      console.error(`Varredura cancelada: ${hdTrouble} erros de disco. Lista anterior mantida.`);
+      return;
+    }
     matchIds(found);
     library = found;
     byId = new Map(found.map(c => [c.id, c]));
+    files = scanFiles;
     lastScan = new Date().toISOString();
-    saveDb();
     problems = scanProblems;
+    if (hdTrouble > 0) scanError = 'O HD parou de responder durante a leitura. Reinicie o app e clique em Atualizar.';
+    saveDb();
+    saveLibCache();
     console.log(`Varredura: ${found.length} cursos em ${((Date.now() - t0) / 1000).toFixed(1)}s` + (problems.length ? ` | ${problems.length} pastas ignoradas` : ''));
     for (const p of problems.slice(0, 50)) console.log('  ignorada:', p.path, '-', p.reason);
   } catch (e) { scanError = e.message; console.error('Erro na varredura:', e); }
-  finally { scanning = false; scanProblems = null; }
+  finally { scanning = false; scanProblems = null; scanFiles = null; }
+}
+
+// guarda a biblioteca no disco interno: ao reiniciar, o app abre na hora sem reler o HD
+function saveLibCache() {
+  try {
+    const tmp = LIB_CACHE + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify({ v: 1, roots: ROOTS, lastScan, library, problems, files: [...files] }));
+    fs.renameSync(tmp, LIB_CACHE);
+  } catch (e) { console.error('Não consegui guardar a biblioteca:', e.message); }
+}
+function loadLibCache() {
+  try {
+    const c = JSON.parse(fs.readFileSync(LIB_CACHE, 'utf8'));
+    if (c.v !== 1 || JSON.stringify(c.roots) !== JSON.stringify(ROOTS) || !Array.isArray(c.library)) return false;
+    library = c.library; byId = new Map(library.map(x => [x.id, x]));
+    files = new Map(c.files || []); problems = c.problems || []; lastScan = c.lastScan || null;
+    console.log(`Biblioteca carregada da memória: ${library.length} cursos (última leitura ${lastScan})`);
+    return true;
+  } catch (e) { return false; }
+}
+let lastAttempt = 0;          // varredura cancelada por erro de disco (não tenta de novo antes de 1 dia)
+function scanIsDue() {
+  if (!lastScan && !lastAttempt) return true;
+  const ref = Math.max(lastScan ? Date.parse(lastScan) : 0, lastAttempt);
+  return RESCAN_MIN > 0 && Date.now() - ref >= RESCAN_MIN * 60 * 1000;
 }
 
 // ---------- montagem das respostas ----------
@@ -793,8 +839,9 @@ loadDb();
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Escola do Shin rodando na porta ${PORT}`);
   console.log('Pastas de cursos:', ROOTS.join(', '), '| Dados:', DATA_DIR);
-  scan();
-  if (RESCAN_MIN > 0) setInterval(scan, RESCAN_MIN * 60 * 1000);
+  if (!loadLibCache() || scanIsDue()) scan();
+  // confere de hora em hora se já passou 1 dia desde a última leitura
+  setInterval(() => { if (!scanning && scanIsDue()) scan(); }, 60 * 60 * 1000);
 });
 process.on('uncaughtException', e => console.error('Erro:', e));
 process.on('SIGTERM', () => { try { fs.writeFileSync(DB_FILE, JSON.stringify(db)); } catch (_) { } process.exit(0); });

@@ -296,3 +296,4 @@ section.bloco{display:flex;flex-direction:column;gap:16px;margin-bottom:40px}
 .diag-lista li{padding:10px 12px;border-radius:12px;background:var(--card);display:flex;flex-direction:column;gap:2px;font-size:14px;word-break:break-word}
 .diag-lista span{color:var(--muted);font-size:13px}
 .mais{display:flex;justify-content:center;margin:20px 0 8px}
+.erro-varredura{font-size:12.5px;line-height:1.4;color:var(--red);background:var(--red-soft);border-radius:10px;padding:8px 10px}
