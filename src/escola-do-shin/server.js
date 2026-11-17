@@ -564,6 +564,18 @@ function progressOf(c) {
   }, 0);
   return { done, total: lessons.length, pct: lessons.length ? Math.round(done / lessons.length * 100) : 0, updated: lastUpd, nextKey: next ? next.key : null, nextWhere: where, remaining, started: lastUpd > 0 };
 }
+// idioma indicado no nome da pasta: [PT-BR], [EN], (Espanhol)...
+const LANG_TAGS = [
+  [/\b(pt[-_ ]?br|pt|portugu[eê]s|br)\b/i, 'Português'], [/\b(en|eng|english|ingl[eê]s)\b/i, 'Inglês'],
+  [/\b(es|esp|español|espanhol)\b/i, 'Espanhol'], [/\b(fr|français|franc[eê]s)\b/i, 'Francês'],
+  [/\b(it|italiano)\b/i, 'Italiano'], [/\b(deutsch|alem[aã]o)\b/i, 'Alemão'], [/\b(jp|ja|japon[eê]s)\b/i, 'Japonês']
+];
+function langFromName(name) {
+  const m = String(name || '').match(/[\[(]([^\])]{2,20})[\])]/g);
+  if (!m) return '';
+  for (const part of m) for (const [re, lang] of LANG_TAGS) if (re.test(part.slice(1, -1))) return lang;
+  return '';
+}
 function summary(c) {
   const d = courseData(c.id);
   const m = d.meta;
@@ -571,6 +583,7 @@ function summary(c) {
     id: c.id, title: m.title || c.title, school: m.school ?? c.school, trail: c.trail, kind: c.kind,
     description: m.description || c.description, teacher: c.teacher,
     category: m.category || '', subcategory: m.subcategory || '', tags: m.tags || [],
+    language: m.language || langFromName(c.folderName || c.title) || '',
     rating: m.rating || 0, favorite: !!m.favorite, opens: d.opens || 0, lastOpened: d.lastOpened || 0,
     watch: d.watchSeconds || 0, firstSeen: (db.index[c.id] || {}).firstSeen || 0,
     modules: c.modules.length, lessons: c.lessonCount, duration: c.duration, cover: coverUrl(c),
@@ -726,6 +739,7 @@ route('GET', /^\/api\/biblioteca$/, async (req, res) => {
     categories: [...cats.entries()].map(([name, subs]) => ({ name, subs: [...subs].sort(natSort) })).sort((a, b) => natSort(a.name, b.name)),
     schools: [...new Set(list.map(c => c.school).filter(Boolean))].sort(natSort),
     tags: [...new Set(list.flatMap(c => c.tags))].sort(natSort),
+    languages: [...new Set(list.map(c => c.language).filter(Boolean))].sort(natSort),
     suggestions: suggestions(list),
     week: weekStats(),
     scanning, scanFound, lastScan, scanError, roots: ROOTS, notesCount: db.notes.length, problemsCount: problems.length
@@ -745,7 +759,7 @@ route('POST', /^\/api\/curso\/(\w+)\/meta$/, async (req, res, m) => {
   if (!byId.has(m[1])) return send(res, 404, { erro: 'Curso não encontrado' });
   const body = await readJson(req);
   const d = courseData(m[1]);
-  const allowed = ['title', 'description', 'school', 'category', 'subcategory', 'tags', 'rating', 'favorite'];
+  const allowed = ['title', 'description', 'school', 'category', 'subcategory', 'tags', 'language', 'rating', 'favorite'];
   for (const k of allowed) if (k in body) {
     let v = body[k];
     if (k === 'tags') v = (Array.isArray(v) ? v : String(v || '').split(',')).map(t => String(t).trim()).filter(Boolean).slice(0, 30);

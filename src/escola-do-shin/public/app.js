@@ -168,11 +168,13 @@
         <div class="prog-txt"><b>${pr.pct}%</b><span>${pr.remaining ? 'faltam ' + fmtDur(pr.remaining) : plural(pr.total - pr.done, 'aula restante', 'aulas restantes')}</span></div>
       </div></a>`;
   }
+  const BANDEIRAS = { 'Português': '🇧🇷', 'Inglês': '🇺🇸', 'Espanhol': '🇪🇸', 'Francês': '🇫🇷', 'Italiano': '🇮🇹', 'Alemão': '🇩🇪', 'Japonês': '🇯🇵', 'Coreano': '🇰🇷', 'Chinês': '🇨🇳', 'Russo': '🇷🇺' };
+  const bandeira = l => l ? (BANDEIRAS[l] || '🌐') : '';
   function cardCurso(c) {
     const pr = c.progress;
     const meta = [c.school, c.category].filter(Boolean).map(esc).join(' · ');
     return `<a class="card" href="#/curso/${c.id}">
-      ${capaHTML(c, `<span class="selo">${c.kind === 'pdf' ? 'PDF' : c.kind === 'misto' ? 'Vídeo + PDF' : 'Vídeo'}</span>${c.favorite ? `<span class="selo selo-dir" style="color:var(--red)">${ic('fav', 14, 'fill="currentColor"')}</span>` : ''}`)}
+      ${capaHTML(c, `<span class="selo">${c.language ? `<span title="${esc(c.language)}">${bandeira(c.language)}</span> ` : ''}${c.kind === 'pdf' ? 'PDF' : c.kind === 'misto' ? 'Vídeo + PDF' : 'Vídeo'}</span>${c.favorite ? `<span class="selo selo-dir" style="color:var(--red)">${ic('fav', 14, 'fill="currentColor"')}</span>` : ''}`)}
       <div class="card-txt"><b>${esc(c.title)}</b><small>${meta || 'Curso avulso'}</small>
         ${pr.started ? `<div class="prog" style="margin-top:6px"><i style="width:${pr.pct}%"></i></div><div class="prog-txt"><b>${pr.pct}%</b><span>${pr.done}/${pr.total} aulas</span></div>`
         : `<small>${plural(c.lessons, 'aula', 'aulas')}${c.duration ? ' · ' + fmtDur(c.duration) : ''}${c.rating ? ` · <span style="color:var(--amber)">★ ${c.rating}</span>` : ''}</small>`}
@@ -258,17 +260,18 @@
     const lib = await carregarBiblioteca();
     if (meu !== S.navSeq) throw OBSOLETO; renderMenu();
     const f = {
-      q: p.get('q') || '', escola: p.get('escola') || '', cat: p.get('cat') || '', sub: p.get('sub') || '', tag: p.get('tag') || '',
+      q: p.get('q') || '', escola: p.get('escola') || '', cat: p.get('cat') || '', sub: p.get('sub') || '', tag: p.get('tag') || '', idioma: p.get('idioma') || '',
       status: p.get('status') || '', tipo: p.get('tipo') || '', nota: p.get('nota') || '', fav: p.get('fav') || '', ordem: p.get('ordem') || 'nome'
     };
     const cat = lib.categories.find(c => c.name === f.cat);
     const nq = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
     let list = lib.courses.filter(c => {
-      if (f.q && !nq([c.title, c.school, c.category, c.subcategory, c.tags.join(' '), c.description, c.teacher].join(' ')).includes(nq(f.q))) return false;
+      if (f.q && !nq([c.title, c.school, c.category, c.subcategory, c.tags.join(' '), c.language, c.description, c.teacher].join(' ')).includes(nq(f.q))) return false;
       if (f.escola && c.school !== f.escola) return false;
       if (f.cat && c.category !== f.cat) return false;
       if (f.sub && c.subcategory !== f.sub) return false;
       if (f.tag && !c.tags.includes(f.tag)) return false;
+      if (f.idioma && (f.idioma === '-' ? c.language : c.language !== f.idioma)) return false;
       if (f.status === 'nao' && c.progress.started) return false;
       if (f.status === 'andamento' && !(c.progress.started && c.progress.pct < 100)) return false;
       if (f.status === 'concluido' && c.progress.pct !== 100) return false;
@@ -302,6 +305,7 @@
         <label class="sr" for="f-cat">Categoria</label><select id="f-cat" name="cat">${opt('', f.cat, 'Todas as categorias')}${lib.categories.map(c => opt(c.name, f.cat)).join('')}</select>
         ${cat && cat.subs.length ? `<label class="sr" for="f-sub">Subcategoria</label><select id="f-sub" name="sub">${opt('', f.sub, 'Todas as subcategorias')}${cat.subs.map(s => opt(s, f.sub)).join('')}</select>` : ''}
         ${lib.tags.length ? `<label class="sr" for="f-tag">Tag</label><select id="f-tag" name="tag">${opt('', f.tag, 'Todas as tags')}${lib.tags.map(t => opt(t, f.tag)).join('')}</select>` : ''}
+        <label class="sr" for="f-idioma">Idioma</label><select id="f-idioma" name="idioma">${opt('', f.idioma, 'Todos os idiomas')}${(lib.languages || []).map(l => opt(l, f.idioma, bandeira(l) + ' ' + l)).join('')}${opt('-', f.idioma, 'Sem idioma definido')}</select>
         <label class="sr" for="f-status">Situação</label><select id="f-status" name="status">${opt('', f.status, 'Qualquer situação')}${opt('nao', f.status, 'Não iniciados')}${opt('andamento', f.status, 'Em andamento')}${opt('concluido', f.status, 'Concluídos')}</select>
         <label class="sr" for="f-tipo">Tipo</label><select id="f-tipo" name="tipo">${opt('', f.tipo, 'Vídeo e PDF')}${opt('video', f.tipo, 'Com vídeo')}${opt('pdf', f.tipo, 'Só PDF')}</select>
         <label class="sr" for="f-nota">Avaliação</label><select id="f-nota" name="nota">${opt('', f.nota, 'Qualquer nota')}${[5, 4, 3].map(n => opt(String(n), f.nota, n + '★ ou mais')).join('')}</select>
@@ -422,7 +426,7 @@
       <div class="curso-topo">
         ${capaHTML(c)}
         <div class="curso-info">
-          <div class="tags">${c.school ? `<span class="tag esc">${esc(c.school)}</span>` : ''}${c.category ? `<a class="tag cat" href="#/explorar?cat=${encodeURIComponent(c.category)}">${esc(c.category)}${c.subcategory ? ' › ' + esc(c.subcategory) : ''}</a>` : ''}${c.tags.map(t => `<a class="tag" href="#/explorar?tag=${encodeURIComponent(t)}">${esc(t)}</a>`).join('')}</div>
+          <div class="tags">${c.school ? `<span class="tag esc">${esc(c.school)}</span>` : ''}${c.language ? `<a class="tag" href="#/explorar?idioma=${encodeURIComponent(c.language)}">${bandeira(c.language)} ${esc(c.language)}</a>` : ''}${c.category ? `<a class="tag cat" href="#/explorar?cat=${encodeURIComponent(c.category)}">${esc(c.category)}${c.subcategory ? ' › ' + esc(c.subcategory) : ''}</a>` : ''}${c.tags.map(t => `<a class="tag" href="#/explorar?tag=${encodeURIComponent(t)}">${esc(t)}</a>`).join('')}</div>
           <h1>${esc(c.title)}</h1>
           ${c.description ? `<p>${esc(c.description)}</p>` : ''}
           <div class="muted" style="font-size:14px">${[c.teacher, c.modules.length > 1 || !c.modules[0].single ? plural(c.modules.length, 'módulo', 'módulos') : '', plural(c.lessons, 'aula', 'aulas'), fmtDur(c.duration)].filter(Boolean).map(esc).join(' · ')}</div>
@@ -767,7 +771,11 @@
         <datalist id="dl-subs">${[...new Set(cats.flatMap(x => x.subs))].map(s => `<option value="${esc(s)}">`).join('')}</datalist>
         <label>Tags (separadas por vírgula)<input name="tags" list="dl-tags" value="${esc(c.tags.join(', '))}" placeholder="animação, expressões"></label>
         <datalist id="dl-tags">${lib.tags.map(t => `<option value="${esc(t)}">`).join('')}</datalist>
-        <label>Escola<input name="school" list="dl-esc" value="${esc(c.school)}"></label>
+        <div class="form-linha">
+          <label>Escola<input name="school" list="dl-esc" value="${esc(c.school)}"></label>
+          <label>Idioma<input name="language" list="dl-idiomas" value="${esc(c.language || '')}" placeholder="Ex.: Português" autocomplete="off"></label>
+        </div>
+        <datalist id="dl-idiomas">${[...new Set([...Object.keys(BANDEIRAS), ...(lib.languages || [])])].map(l => `<option value="${esc(l)}">`).join('')}</datalist>
         <datalist id="dl-esc">${lib.schools.map(s => `<option value="${esc(s)}">`).join('')}</datalist>
         <label>Descrição<textarea name="description" rows="4">${esc(c.description)}</textarea></label>
         ${c.cover && c.cover.startsWith('/capa/') ? `<button type="button" class="btn sec peq" data-acao="refazer-capa" data-id="${id}" style="align-self:flex-start">${ic('atualizar', 14)}Gerar a capa de novo</button>` : ''}
@@ -841,7 +849,7 @@
     try {
       if (f.dataset.form === 'busca') location.hash = '#/explorar?q=' + encodeURIComponent(fd.get('q') || '');
       else if (f.dataset.form === 'editar') {
-        await api(`/api/curso/${f.dataset.id}/meta`, { json: { title: fd.get('title'), category: fd.get('category'), subcategory: fd.get('subcategory'), tags: fd.get('tags'), school: fd.get('school'), description: fd.get('description') } });
+        await api(`/api/curso/${f.dataset.id}/meta`, { json: { title: fd.get('title'), category: fd.get('category'), subcategory: fd.get('subcategory'), tags: fd.get('tags'), school: fd.get('school'), language: fd.get('language'), description: fd.get('description') } });
         fecharModal(); invalidar(); rota(); aviso('Curso atualizado');
       }
       else if (f.dataset.form === 'link') {
@@ -866,6 +874,19 @@
     for (const [k, v] of new FormData(f)) if (v) p.set(k, v);
     if (f.dataset.form === 'filtros' && e.target.name === 'cat') p.delete('sub');
     location.hash = (f.dataset.form === 'notas' ? '#/notas' : '#/explorar') + (p.toString() ? '?' + p : '');
+  });
+  // busca enquanto digita: atualiza os resultados uma fração de segundo depois de parar de digitar
+  let tBusca = null;
+  document.addEventListener('input', (e) => {
+    const el = e.target;
+    if (!el.matches('#busca, #f-q, #n-q')) return;
+    clearTimeout(tBusca);
+    tBusca = setTimeout(() => {
+      const v = el.value;
+      S.foco = { id: el.id === 'n-q' ? 'n-q' : 'f-q', pos: el.selectionStart ?? v.length };
+      if (el.id === 'busca') { location.hash = '#/explorar' + (v ? '?q=' + encodeURIComponent(v) : ''); return; }
+      el.form.dispatchEvent(new Event('change', { bubbles: true }));
+    }, 250);
   });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && $('#modal-raiz').innerHTML) fecharModal();
@@ -895,6 +916,11 @@
     } catch (err) {
       if (err === OBSOLETO) return;
       conteudo.innerHTML = `<div class="vazio"><b>Algo deu errado</b><span>${esc(err.message)}</span><a class="btn solido" href="#/">Voltar ao início</a></div>`;
+    }
+    if (S.foco) {
+      const el = document.getElementById(S.foco.id);
+      if (el) { el.focus({ preventScroll: true }); try { el.setSelectionRange(S.foco.pos, S.foco.pos); } catch (_) { } S.foco = null; return; }
+      S.foco = null;
     }
     if (!caminho.length || caminho[0] !== 'aula') window.scrollTo(0, 0);
     else window.scrollTo(0, 0);
