@@ -4,7 +4,7 @@ name: Escola do Shin
 tagline: Sua biblioteca de cursos em vídeo e PDF, com progresso e anotações
 icon: https://raw.githubusercontent.com/ShinSsa/shin-app-store/master/assets/escola-do-shin.png
 category: media
-version: "1.0.6"
+version: "1.0.7"
 port: 8792
 description: >-
   Lê a sua pasta de cursos e monta uma biblioteca no estilo Domestika:
@@ -27,7 +27,7 @@ repo: https://github.com/ShinSsa/shin-app-store
 support: https://github.com/ShinSsa/shin-app-store/issues
 gallery: []
 releaseNotes: >-
-  Corrige o travamento do umbrel: conexões de vídeo abandonadas pelo navegador agora são fechadas na hora. Pastas com emoji no nome (HD do Mac) aparecem com o motivo certo e não disparam mais o aviso de HD desconectado. Pastas Exercícios, Projetos, Assets, Fontes e Brushes viram materiais do curso.
+  Cursos abrem na hora: os links dos PDFs são lidos em segundo plano e sem os links falsos do Illustrator. Cliques não ficam mais presos em páginas lentas. Novo campo Idioma com filtro e bandeira no card (detectado de [PT-BR], [EN], [ES] no nome da pasta). Busca enquanto digita. Capas pretas evitadas e botão para gerar a capa de novo.
 dependencies: []
 path: ""
 defaultUsername: ""
