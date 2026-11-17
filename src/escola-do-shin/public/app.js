@@ -195,8 +195,9 @@
 
   // ---------- telas ----------
   async function telaInicio() {
+    const meu = S.navSeq;
     const lib = await carregarBiblioteca();
-    renderMenu();
+    if (meu !== S.navSeq) throw OBSOLETO; renderMenu();
     const h = new Date().getHours();
     const saud = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
     if (!lib.courses.length) {
@@ -253,8 +254,9 @@
   }
 
   async function telaExplorar(p) {
+    const meu = S.navSeq;
     const lib = await carregarBiblioteca();
-    renderMenu();
+    if (meu !== S.navSeq) throw OBSOLETO; renderMenu();
     const f = {
       q: p.get('q') || '', escola: p.get('escola') || '', cat: p.get('cat') || '', sub: p.get('sub') || '', tag: p.get('tag') || '',
       status: p.get('status') || '', tipo: p.get('tipo') || '', nota: p.get('nota') || '', fav: p.get('fav') || '', ordem: p.get('ordem') || 'nome'
@@ -314,8 +316,9 @@
   }
 
   async function telaEscolas() {
+    const meu = S.navSeq;
     const lib = await carregarBiblioteca();
-    renderMenu();
+    if (meu !== S.navSeq) throw OBSOLETO; renderMenu();
     const grupos = {};
     for (const c of lib.courses) { const s = c.school || 'Cursos avulsos'; (grupos[s] = grupos[s] || []).push(c); }
     const nomes = Object.keys(grupos).sort((a, b) => a === 'Cursos avulsos' ? 1 : b === 'Cursos avulsos' ? -1 : a.localeCompare(b, 'pt-BR'));
@@ -329,8 +332,9 @@
   }
 
   async function telaOrganizar() {
+    const meu = S.navSeq;
     const lib = await carregarBiblioteca();
-    renderMenu();
+    if (meu !== S.navSeq) throw OBSOLETO; renderMenu();
     const sem = lib.courses.filter(c => !c.category);
     conteudo.innerHTML = topo('Para organizar', sem.length ? 'Cursos novos sem categoria. Clique para definir categoria, subcategoria e tags.' : '') +
       (sem.length ? gradePaginada(sem, c => `<button class="card" data-acao="editar" data-id="${c.id}" style="border:0;text-align:left;color:inherit">
@@ -349,8 +353,10 @@
       <button class="apagar" data-acao="apagar-nota" data-id="${n.id}" aria-label="Apagar anotação">${ic('lixo', 16)}</button></div>`;
   }
   async function telaNotas(p) {
-    await carregarBiblioteca(); renderMenu();
+    const meu = S.navSeq;
+    await carregarBiblioteca(); if (meu !== S.navSeq) throw OBSOLETO; renderMenu();
     const notas = await api('/api/notas');
+    if (meu !== S.navSeq) throw OBSOLETO;
     const q = (p.get('q') || '').toLowerCase();
     const lista = q ? notas.filter(n => (n.text + n.courseTitle + n.lessonTitle).toLowerCase().includes(q)) : notas;
     const grupos = {};
@@ -405,8 +411,9 @@
   }
 
   async function telaCurso(id) {
+    const meu = S.navSeq;
     const [lib, c] = await Promise.all([carregarBiblioteca(), carregarCurso(id, true)]);
-    renderMenu();
+    if (meu !== S.navSeq) throw OBSOLETO; renderMenu();
     api('/api/curso/' + id + '/abrir', { method: 'POST' }).catch(() => { });
     const pr = c.progress;
     const allMats = c.materials;
@@ -440,8 +447,9 @@
 
   // ---------- aula ----------
   async function telaAula(id, key, p) {
+    const meu = S.navSeq;
     const [lib, c] = await Promise.all([carregarBiblioteca(), carregarCurso(id, true)]);
-    renderMenu();
+    if (meu !== S.navSeq) throw OBSOLETO; renderMenu();
     const all = c.modules.flatMap((m, mi) => m.lessons.map((l, li) => ({ ...l, mi, li, m })));
     const idx = Math.max(0, all.findIndex(l => l.key === key));
     const L = all[idx];
@@ -543,7 +551,7 @@
       ultimo = t;
       if (!L.done && v.duration && t / v.duration >= 0.9) { marcarFeito(true); salvar({ done: true, pos: t }); }
       if (Date.now() - salvoEm > 8000) { salvoEm = Date.now(); salvar({ pos: t, watched: acumulado }); acumulado = 0; }
-      if (!capturou && t > 4) { capturou = true; capturarDoVideo(v, c.id).then(ok => { if (ok) { S.cursos[c.id] = null; S.lib = null; } }); }
+      if (!capturou && t > 4) { capturou = true; capturarDoVideo(v, c.id).then(ok => { if (ok === true) { S.cursos[c.id] = null; S.lib = null; } }); }
     });
     v.addEventListener('seeking', () => { ultimo = null; });
     v.addEventListener('pause', () => { salvar({ pos: v.currentTime, watched: acumulado }); acumulado = 0; });
@@ -628,18 +636,34 @@
     if (!c || c.cover || !c.needsCover || tentadas.has(id) || geradas >= MAX_CAPAS) return;
     tentadas.add(id); filaCapas.push(c); proximaCapa();
   }
+  // quadro escuro demais = o Safari ainda não desenhou o vídeo (ou é uma cena preta): não salva
+  function quadroEscuro(ctx, w, h) {
+    try {
+      const d = ctx.getImageData(0, 0, w, h).data; let soma = 0, n = 0;
+      for (let i = 0; i < d.length; i += 4 * 97) { soma += d[i] + d[i + 1] + d[i + 2]; n++; }
+      return soma / (n * 3) < 14;
+    } catch (_) { return false; }
+  }
   function capturarDoVideo(v, id) {
     return new Promise(resolve => {
-      try {
-        const w = 640, h = Math.round(640 * (v.videoHeight / v.videoWidth || 9 / 16));
-        const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-        cv.getContext('2d').drawImage(v, 0, 0, w, h);
-        cv.toBlob(b => {
-          cv.width = cv.height = 0;
-          if (!b) return resolve(false);
-          fetch('/api/capa/' + id, { method: 'POST', body: b, headers: { 'Content-Type': 'image/jpeg' } }).then(r => resolve(r.ok)).catch(() => resolve(false));
-        }, 'image/jpeg', 0.82);
-      } catch (e) { resolve(false); }
+      // espera o quadro aparecer de verdade antes de copiar
+      const desenhar = () => {
+        try {
+          const w = 640, h = Math.round(640 * (v.videoHeight / v.videoWidth || 9 / 16));
+          const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+          const ctx = cv.getContext('2d', { willReadFrequently: true });
+          ctx.drawImage(v, 0, 0, w, h);
+          if (quadroEscuro(ctx, w, h)) { cv.width = cv.height = 0; return resolve('escuro'); }
+          cv.toBlob(b => {
+            cv.width = cv.height = 0;
+            if (!b) return resolve(false);
+            fetch('/api/capa/' + id, { method: 'POST', body: b, headers: { 'Content-Type': 'image/jpeg' } }).then(r => resolve(r.ok)).catch(() => resolve(false));
+          }, 'image/jpeg', 0.82);
+        } catch (e) { resolve(false); }
+      };
+      let foi = false; const uma = () => { if (!foi) { foi = true; desenhar(); } };
+      if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(uma);
+      setTimeout(uma, v.requestVideoFrameCallback ? 1200 : 350);
     });
   }
   function proximaCapa() {
@@ -662,8 +686,11 @@
       setTimeout(proximaCapa, 600);
     };
     const to = setTimeout(() => fim(false), 15000);
-    v.onloadedmetadata = () => { v.currentTime = Math.min(Math.max(5, v.duration * 0.12), 90, Math.max(v.duration - 1, 0)); };
-    v.onseeked = () => capturarDoVideo(v, c.id).then(fim);
+    // tenta em 3 pontos do vídeo até achar um quadro que não seja escuro
+    const pontos = [0.15, 0.35, 0.6]; let p = 0;
+    const irPara = () => { v.currentTime = Math.min(Math.max(5, v.duration * pontos[p]), Math.max(v.duration - 1, 0)); };
+    v.onloadedmetadata = irPara;
+    v.onseeked = () => capturarDoVideo(v, c.id).then(r => { if (r === 'escuro' && ++p < pontos.length) irPara(); else fim(r === true); });
     v.onerror = () => fim(false);
     v.src = '/f/' + c.needsCover;
   }
@@ -743,6 +770,7 @@
         <label>Escola<input name="school" list="dl-esc" value="${esc(c.school)}"></label>
         <datalist id="dl-esc">${lib.schools.map(s => `<option value="${esc(s)}">`).join('')}</datalist>
         <label>Descrição<textarea name="description" rows="4">${esc(c.description)}</textarea></label>
+        ${c.cover && c.cover.startsWith('/capa/') ? `<button type="button" class="btn sec peq" data-acao="refazer-capa" data-id="${id}" style="align-self:flex-start">${ic('atualizar', 14)}Gerar a capa de novo</button>` : ''}
         <span class="muted" style="font-size:12px">Categorias novas são criadas ao salvar. Nada disso altera seus arquivos.</span>
       </div>
       <div class="form-pe"><button type="button" class="btn sec" data-acao="fechar">Cancelar</button><button type="submit" class="btn solido">Salvar</button></div></form>`, 'form');
@@ -771,6 +799,12 @@
       else if (a === 'varrer') { await api('/api/varrer', { method: 'POST' }); aviso('Atualizando a biblioteca…'); setTimeout(() => { invalidar(); rota(); }, 1500); }
       else if (a === 'diagnostico') verDiagnostico();
       else if (a === 'mais') mostrarMais(t);
+      else if (a === 'refazer-capa') {
+        await api('/api/capa/' + t.dataset.id, { method: 'DELETE' });
+        fecharModal(); invalidar(); S.cursos[t.dataset.id] = null;
+        tentadas.delete(t.dataset.id); conhecidos.delete(t.dataset.id);
+        aviso('Capa apagada. Uma nova será gerada quando o curso aparecer na tela.'); rota();
+      }
       else if (a === 'fechar' || (a === 'fechar-fundo' && e.target === t)) fecharModal();
       else if (a === 'ver') verMaterial(t.dataset.id, t.dataset.tipo, t.dataset.nome);
       else if (a === 'zoom') t.classList.toggle('zoom');
@@ -839,7 +873,10 @@
   });
 
   // ---------- rotas ----------
+  // cada clique numa tela nova cancela a anterior: uma página lenta não aparece depois por cima da atual
+  const OBSOLETO = new Error('obsoleto');
   async function rota() {
+    S.navSeq = (S.navSeq || 0) + 1;
     S.limpeza.splice(0).forEach(fn => { try { fn(); } catch (_) { } });
     clearInterval(S.heroTimer); S.aula = null; fecharModal();
     const r = rotaAtual();
@@ -856,6 +893,7 @@
       else if (caminho[0] === 'aula') await telaAula(caminho[1], caminho[2], p);
       else await telaInicio();
     } catch (err) {
+      if (err === OBSOLETO) return;
       conteudo.innerHTML = `<div class="vazio"><b>Algo deu errado</b><span>${esc(err.message)}</span><a class="btn solido" href="#/">Voltar ao início</a></div>`;
     }
     if (!caminho.length || caminho[0] !== 'aula') window.scrollTo(0, 0);

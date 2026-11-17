@@ -121,36 +121,57 @@ async function mp4Duration(file) {
 
 // ---------- extração de links de PDF ----------
 const URL_RE = /https?:\/\/[^\s<>"'()\\\]\[{}]+[^\s<>"'()\\\]\[{}.,;:!?]/g;
-const pdfLinkCache = new Map();
-async function pdfLinks(file) {
-  try {
-    const st = await fsp.stat(file);
-    if (st.size > 60 * 1024 * 1024) return [];
-    const key = file + '|' + st.size + '|' + st.mtimeMs;
-    if (pdfLinkCache.has(key)) return pdfLinkCache.get(key);
-    const raw = await fsp.readFile(file);
-    const texts = [raw.toString('latin1')];
-    let i = 0;
-    for (let n = 0; n < 4000; n++) {
-      const s = raw.indexOf('stream', i, 'latin1');
-      if (s < 0) break;
-      let start = s + 6;
-      if (raw[start] === 0x0d) start++;
-      if (raw[start] === 0x0a) start++;
-      const e = raw.indexOf('endstream', start, 'latin1');
-      if (e < 0) break;
-      try { texts.push(zlib.inflateSync(raw.subarray(start, e)).toString('latin1')); } catch (_) { }
-      i = e + 9;
-    }
-    const found = new Set();
-    for (const t of texts) {
-      for (const m of t.matchAll(/\/URI\s*\(([^)]{4,500})\)/g)) found.add(m[1].replace(/\\(.)/g, '$1'));
-      for (const m of t.matchAll(URL_RE)) found.add(m[0]);
-    }
-    const out = [...found].filter(u => /^https?:\/\//i.test(u) && u.length < 400).slice(0, 80);
-    pdfLinkCache.set(key, out);
-    return out;
-  } catch (e) { return []; }
+// Links de PDFs: lidos em segundo plano, um PDF por vez, sem travar o servidor.
+// Só procura links clicáveis de verdade (/URI) e ignora imagens e metadados do Illustrator/Adobe.
+const LINK_JUNK = /^https?:\/\/(www\.)?(w3\.org|ns\.adobe\.com|purl\.org|iec\.ch|www\.iec\.ch|color\.org|aiim\.org|npes\.org|xml\.org|schemas\.|adobe\.com\/(xap|products\/xmp))/i;
+const PDF_LINKS_FILE = path.join(DATA_DIR, 'links-pdf.json');
+let pdfLinkStore = {};
+try { pdfLinkStore = JSON.parse(fs.readFileSync(PDF_LINKS_FILE, 'utf8')); } catch (_) { }
+let pdfStoreDirty = false;
+setInterval(() => { if (!pdfStoreDirty) return; pdfStoreDirty = false; try { fs.writeFileSync(PDF_LINKS_FILE, JSON.stringify(pdfLinkStore)); } catch (_) { } }, 30000);
+const pdfQueue = []; let pdfBusy = false;
+
+function pdfLinksCached(file, size) {
+  const r = pdfLinkStore[file + '|' + size];
+  if (r) return r;
+  if (!pdfQueue.some(q => q.file === file)) { pdfQueue.push({ file, size }); setImmediate(nextPdf); }
+  return null;
+}
+async function nextPdf() {
+  if (pdfBusy || !pdfQueue.length || scanning) { if (scanning && pdfQueue.length) setTimeout(nextPdf, 60000); return; }
+  pdfBusy = true;
+  const { file, size } = pdfQueue.shift();
+  try { pdfLinkStore[file + '|' + size] = await extractPdfLinks(file); pdfStoreDirty = true; }
+  catch (_) { pdfLinkStore[file + '|' + size] = []; }
+  pdfBusy = false;
+  setTimeout(nextPdf, 200);
+}
+const inflateAsync = (buf) => new Promise(res => zlib.inflate(buf, { maxOutputLength: 4 * 1024 * 1024 }, (e, out) => res(e ? null : out)));
+async function extractPdfLinks(file) {
+  const st = await fsp.stat(file);
+  if (st.size > 40 * 1024 * 1024) return [];
+  const raw = await fsp.readFile(file);
+  const found = new Set();
+  const grab = (txt) => { for (const m of txt.matchAll(/\/URI\s*\(([^)]{4,500})\)/g)) found.add(m[1].replace(/\\(.)/g, '$1')); };
+  grab(raw.toString('latin1'));
+  // objetos compactados (onde ficam as anotações de link nos PDFs modernos); pula imagens e fontes
+  let i = 0;
+  for (let n = 0; n < 1500; n++) {
+    const s = raw.indexOf('stream', i, 'latin1');
+    if (s < 0) break;
+    const dict = raw.subarray(Math.max(0, s - 400), s).toString('latin1');
+    let start = s + 6;
+    if (raw[start] === 0x0d) start++;
+    if (raw[start] === 0x0a) start++;
+    const e = raw.indexOf('endstream', start, 'latin1');
+    if (e < 0) break;
+    i = e + 9;
+    if (!/\/ObjStm/.test(dict) || !/FlateDecode/.test(dict) || e - start > 2 * 1024 * 1024) continue;
+    const out = await inflateAsync(raw.subarray(start, e));
+    if (out) grab(out.toString('latin1'));
+    if (n % 20 === 0) await new Promise(r => setImmediate(r));
+  }
+  return [...found].filter(u => /^https?:\/\//i.test(u) && u.length < 400 && !LINK_JUNK.test(u)).slice(0, 80);
 }
 function parseLinksTxt(text) {
   const out = [];
@@ -566,7 +587,9 @@ async function detail(c) {
   for (const m of pdfMats.slice(0, 30)) {
     const abs = files.get(m.id);
     if (!abs) continue;
-    for (const u of await pdfLinks(abs)) extra.push({ title: null, url: u, source: m.name, scope: m.scope });
+    // usa só o que já foi lido; os PDFs novos entram na fila e aparecem na próxima vez que abrir o curso
+    const got = pdfLinksCached(abs, m.size || 0);
+    if (got) for (const u of got) extra.push({ title: null, url: u, source: m.name, scope: m.scope });
   }
   const seen = new Set();
   const links = [...c.links, ...extra, ...d.manualLinks.map(l => ({ ...l, source: 'manual' }))]
@@ -798,6 +821,10 @@ route('POST', /^\/api\/capa\/(\w+)$/, async (req, res, m) => {
   const buf = await readBody(req, 4 * 1024 * 1024);
   if (buf.length < 1000 || buf[0] !== 0xff || buf[1] !== 0xd8) return send(res, 400, { erro: 'Imagem inválida' });
   await fsp.writeFile(path.join(COVER_DIR, m[1] + '.jpg'), buf);
+  send(res, 200, { ok: true });
+});
+route('DELETE', /^\/api\/capa\/(\w+)$/, async (req, res, m) => {
+  try { await fsp.unlink(path.join(COVER_DIR, m[1] + '.jpg')); } catch (_) { }
   send(res, 200, { ok: true });
 });
 route('POST', /^\/api\/varrer$/, async (req, res) => { scan(); send(res, 200, { ok: true }); });
