@@ -310,3 +310,14 @@ section.bloco{display:flex;flex-direction:column;gap:16px;margin-bottom:40px}
 .bk-ex li{display:flex;flex-direction:column}
 .bk-ex span{color:var(--muted);font-size:12.5px}
 .bk-previa details summary{cursor:pointer;color:var(--muted);font-size:13.5px}
+/* 1.0.9: menu completo no celular (botão "Mais") */
+.menu-fundo{display:none}
+@media (max-width:900px){
+  .barra-celular a{min-width:0}
+  body.menu-aberto .menu{display:flex;position:fixed;left:12px;right:12px;top:auto;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 84px);max-height:calc(100vh - 140px);z-index:46;gap:18px;padding:20px 14px;box-shadow:var(--shadow-lg);animation:subir .18s ease-out}
+  body.menu-aberto .menu-fundo{display:block;position:fixed;inset:0;background:rgba(10,14,20,.45);z-index:44}
+  body.menu-aberto{overflow:hidden}
+  body.menu-aberto .barra-celular{z-index:47}
+  body.menu-aberto .barra-celular a[data-acao=menu-celular]{color:var(--accent);background:var(--accent-soft)}
+}
+@keyframes subir{from{transform:translateY(16px);opacity:0}to{transform:none;opacity:1}}

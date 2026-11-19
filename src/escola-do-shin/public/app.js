@@ -60,6 +60,7 @@
     notas: '<path d="M4 4h12l4 4v12H4z"/><path d="M8 12h8M8 16h5"/>',
     fav: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',
     org: '<path d="M4 7h16M4 12h10M4 17h6"/><path d="m16 15 2 2 4-4"/>',
+    mais: '<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>',
     backup: '<path d="M4 7c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3z"/><path d="M4 7v10c0 1.7 3.6 3 8 3s8-1.3 8-3V7"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
     escola: '<path d="M3 21h18M5 21V9l7-5 7 5v12M10 21v-6h4v6"/>',
     busca: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
@@ -157,7 +158,8 @@
       <a class="${r === '/' ? 'ativo' : ''}" href="#/">${ic('inicio', 22)}Início</a>
       <a class="${isExp ? 'ativo' : ''}" href="#/explorar">${ic('explorar', 22)}Explorar</a>
       <a class="${r.startsWith('/notas') ? 'ativo' : ''}" href="#/notas">${ic('notas', 22)}Notas</a>
-      <a class="${r.startsWith('/organizar') ? 'ativo' : ''}" href="#/organizar">${ic('org', 22)}Organizar</a>`;
+      <a class="${r.startsWith('/organizar') ? 'ativo' : ''}" href="#/organizar">${ic('org', 22)}Organizar</a>
+      <a role="button" tabindex="0" data-acao="menu-celular" aria-expanded="${document.body.classList.contains('menu-aberto')}">${ic('mais', 22)}Mais</a>`;
   }
 
   // ---------- componentes ----------
@@ -867,6 +869,7 @@
   }
 
   // ---------- eventos ----------
+  document.addEventListener('click', (e) => { if (e.target.closest('.menu a[href]')) document.body.classList.remove('menu-aberto'); });
   document.addEventListener('click', async (e) => {
     const t = e.target.closest('[data-acao],[data-hero],[data-top],[data-vel]');
     if (!t) return;
@@ -883,6 +886,11 @@
       else if (a === 'varrer') { await api('/api/varrer', { method: 'POST' }); aviso('Atualizando a biblioteca…'); setTimeout(() => { invalidar(); rota(); }, 1500); }
       else if (a === 'diagnostico') verDiagnostico();
       else if (a === 'mais') mostrarMais(t);
+      else if (a === 'menu-celular' || a === 'fechar-menu') {
+        const abrir = a === 'menu-celular' && !document.body.classList.contains('menu-aberto');
+        document.body.classList.toggle('menu-aberto', abrir);
+        const bt = document.querySelector('[data-acao=menu-celular]'); if (bt) bt.setAttribute('aria-expanded', abrir);
+      }
       else if (a === 'cancelar-org') { S.orgTexto = null; $('#bk-previa').innerHTML = ''; }
       else if (a === 'aplicar-org' && S.orgTexto) {
         t.disabled = true;
@@ -983,6 +991,7 @@
   const OBSOLETO = new Error('obsoleto');
   async function rota() {
     S.navSeq = (S.navSeq || 0) + 1;
+    document.body.classList.remove('menu-aberto');
     S.limpeza.splice(0).forEach(fn => { try { fn(); } catch (_) { } });
     clearInterval(S.heroTimer); S.aula = null; fecharModal();
     const r = rotaAtual();
