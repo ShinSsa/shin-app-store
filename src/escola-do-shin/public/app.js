@@ -424,11 +424,12 @@
       box.innerHTML = `<div class="bk-previa">
           <b>${plural(d.alterados, 'curso vai mudar', 'cursos vão mudar')}</b>
           <span class="muted">${d.encontrados} de ${d.noArquivo} itens do arquivo foram encontrados na biblioteca (${d.cursosNaBiblioteca} cursos).</span>
+          ${d.novosInteiros ? `<span>${ic('org', 14)} <b>${plural(d.novosInteiros, 'curso dividido em módulos vai ser juntado', 'cursos divididos em módulos vão ser juntados')}</b> num só. O app relê as pastas e organiza esses cursos no fim.</span>` : ''}
           ${d.categorias.length ? `<div><small class="muted">Categorias</small><div class="tags">${chips(d.categorias)}</div></div>` : ''}
           ${d.tags.length ? `<div><small class="muted">Tags</small><div class="tags">${chips(d.tags, 40)}</div></div>` : ''}
           ${d.exemplos.length ? `<div><small class="muted">Exemplos</small><ul class="bk-ex">${d.exemplos.map(x => `<li><b>${esc(x.titulo)}</b><span>${esc([x.category, x.subcategory].filter(Boolean).join(' › '))}${x.tags && x.tags.length ? ' · ' + esc(x.tags.join(', ')) : ''}${x.language ? ' · ' + esc(x.language) : ''}</span></li>`).join('')}</ul></div>` : ''}
           ${d.totalSemCurso ? `<details><summary>${plural(d.totalSemCurso, 'item não encontrado', 'itens não encontrados')} na biblioteca</summary><ul class="bk-ex">${d.semCurso.map(x => `<li>${esc(x)}</li>`).join('')}</ul></details>` : ''}
-          <div class="bk-acoes">${d.alterados ? `<button class="btn solido" data-acao="aplicar-org">${ic('check', 16)}Aplicar em ${plural(d.alterados, 'curso', 'cursos')}</button>` : '<span class="muted">Nada para mudar.</span>'}
+          <div class="bk-acoes">${d.alterados || d.novosInteiros ? `<button class="btn solido" data-acao="aplicar-org">${ic('check', 16)}${d.alterados ? 'Aplicar em ' + plural(d.alterados, 'curso', 'cursos') : 'Aplicar'}</button>` : '<span class="muted">Nada para mudar.</span>'}
             <button class="btn sec" data-acao="cancelar-org">Cancelar</button></div>
         </div>`;
     } catch (err) { aviso(err.message); const box = $('#bk-previa'); if (box) box.innerHTML = `<div class="erro-varredura">⚠ ${esc(err.message)}</div>`; }
@@ -897,8 +898,10 @@
         const d = await enviarJson('/api/organizacao/aplicar', S.orgTexto);
         S.orgTexto = null; invalidar(); S.cursos = {};
         aviso(`Organização aplicada em ${plural(d.alterados, 'curso', 'cursos')}`);
-        $('#bk-previa').innerHTML = `<div class="bk-previa"><b>Pronto: ${plural(d.alterados, 'curso organizado', 'cursos organizados')}.</b><a class="btn sec" href="#/explorar">Ver em Explorar</a></div>`;
-        renderMenu();
+        $('#bk-previa').innerHTML = `<div class="bk-previa"><b>Pronto: ${plural(d.alterados, 'curso organizado', 'cursos organizados')}.</b>
+          ${d.relendo ? `<span class="muted">Agora o app está relendo as pastas para juntar os módulos. Acompanhe em "Lendo pastas…" no menu; quando terminar, os cursos juntados já aparecem organizados.</span>` : ''}
+          <a class="btn sec" href="#/explorar">Ver em Explorar</a></div>`;
+        if (d.relendo) setTimeout(() => { invalidar(); carregarBiblioteca().then(renderMenu); }, 1500); else renderMenu();
       }
       else if (a === 'refazer-capa') {
         await api('/api/capa/' + t.dataset.id, { method: 'DELETE' });

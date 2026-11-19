@@ -20,7 +20,7 @@ const RESCAN_MIN = parseInt(process.env.VARREDURA_MINUTOS || '1440', 10);
 const VIDEO_EXT = new Set(['.mp4', '.m4v', '.mov', '.webm', '.mkv', '.avi', '.wmv', '.flv', '.ts', '.m2ts', '.mts', '.mpg', '.mpeg', '.3gp', '.vob']);
 const PDF_EXT = new Set(['.pdf']);
 const IMG_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
-const RES_DIR = /^(materia(l|is)( extras?| de apoio| complementar(es)?)?|recursos?|resources?|extras?|anexos?|arquivos?|downloads?|attachments?|apostilas?|bonus|bônus|links?|exerc[ií]cios?|projetos?|assets|fontes|brushes|pinc[eé]is)$/i;
+const RES_DIR = /^(materia(l|is)( extras?| de apoio| complementar(es)?)?|recursos?|resources?|extras?|anexos?|arquivos?|downloads?|attachments?|apostilas?|bonus|bônus|links?|exerc[ií]cios?|projetos?|assets|fontes|brushes|pinc[eé]is|m[ií]dias?( de exerc[ií]cios?)?|footage)$/i;
 const COVER_NAMES = /^(capa|cover|folder|poster|thumb|thumbnail)\.(jpe?g|png|webp)$/i;
 const LINKS_TXT = /^links?.*\.txt$/i;
 const SKIP = /^(\.|@eaDir$|#recycle$|\$RECYCLE|System Volume Information|desktop\.ini$|Thumbs\.db$)/i;
@@ -360,6 +360,16 @@ async function buildFolder(dir, scope, isCourseRoot) {
   return { lessons, materials: mats, links };
 }
 
+async function addSubfolders(part, dir, depth) {
+  if (depth > 3) return;
+  for (const sub of await listDir(dir)) {
+    if (!sub.isDirectory() || RES_DIR.test(sub.name)) continue;
+    const subDir = path.join(dir, sub.name);
+    const sp = await buildFolder(subDir, 'modulo', false);
+    part.lessons.push(...sp.lessons); part.materials.push(...sp.materials); part.links.push(...sp.links);
+    await addSubfolders(part, subDir, depth + 1);
+  }
+}
 async function buildCourse(dir, trail, root) {
   const ents = await listDir(dir);
   let info = {};
@@ -381,14 +391,8 @@ async function buildCourse(dir, trail, root) {
     courseMaterials.push(...rootPart.materials); courseLinks.push(...rootPart.links);
     for (const m of modDirs) {
       const part = await buildFolder(path.join(dir, m.name), 'modulo', false);
-      // módulos com subpastas (ex.: capítulos) — achata um nível
-      if (!part.lessons.length) {
-        for (const sub of await listDir(path.join(dir, m.name))) {
-          if (!sub.isDirectory() || RES_DIR.test(sub.name)) continue;
-          const sp = await buildFolder(path.join(dir, m.name, sub.name), 'modulo', false);
-          part.lessons.push(...sp.lessons); part.materials.push(...sp.materials); part.links.push(...sp.links);
-        }
-      }
+      // módulos com subpastas (capítulos, aulas em pastas): junta tudo, até 3 níveis abaixo
+      await addSubfolders(part, path.join(dir, m.name), 1);
       const ct = cleanTitle(m.name);
       modules.push({ title: ct.title || m.name, num: ct.num, lessons: part.lessons, materials: part.materials });
       courseLinks.push(...part.links.map(l => ({ ...l, module: ct.title || m.name })));
@@ -416,9 +420,21 @@ async function buildCourse(dir, trail, root) {
   };
 }
 
+// pastas marcadas como "curso inteiro" pela importação de organização (ou por um curso.json)
+function relDir(dir, root) {
+  let rel = path.relative(root, dir).split(path.sep).join('/');
+  if (root !== ROOTS[0]) rel = path.basename(root) + ':' + rel;
+  return rel.normalize('NFC').toLowerCase();
+}
+function isForcedCourse(dir, root) {
+  const list = db.forceCourse || [];
+  if (!list.length) return false;
+  const r = relDir(dir, root);
+  return list.some(x => String(x).normalize('NFC').toLowerCase().replace(/^\/+|\/+$/g, '') === r);
+}
 async function classify(dir, trail, root, out) {
   const ents = await listDir(dir);
-  const forceCourse = ents.some(e => e.isFile() && /^curso\.json$/i.test(e.name));
+  const forceCourse = isForcedCourse(dir, root) || ents.some(e => e.isFile() && /^curso\.json$/i.test(e.name));
   const forceSchool = ents.some(e => e.isFile() && /^escola\.json$/i.test(e.name));
   if (forceCourse) { const c = await buildCourse(dir, trail, root); if (c) { out.push(c); scanFound = out.length; } return; }
   const d = await mediaDepth(dir);
@@ -492,12 +508,20 @@ async function scan() {
     lastScan = new Date().toISOString();
     problems = scanProblems;
     if (hdTrouble > 0) scanError = 'O HD parou de responder durante a leitura. Reinicie o app e clique em Atualizar.';
+    if (db.pendingOrg) {
+      try { applyOrg(db.pendingOrg); console.log('Organização pendente aplicada depois de juntar cursos.'); }
+      catch (e) { console.error('Organização pendente falhou:', e.message); }
+      delete db.pendingOrg;
+    }
     saveDb();
     saveLibCache();
     console.log(`Varredura: ${found.length} cursos em ${((Date.now() - t0) / 1000).toFixed(1)}s` + (problems.length ? ` | ${problems.length} pastas ignoradas` : ''));
     for (const p of problems.slice(0, 50)) console.log('  ignorada:', p.path, '-', p.reason);
   } catch (e) { scanError = e.message; console.error('Erro na varredura:', e); }
-  finally { scanning = false; scanProblems = null; scanFiles = null; }
+  finally {
+    scanning = false; scanProblems = null; scanFiles = null;
+    if (pendingRescan) { pendingRescan = false; setTimeout(scan, 500); }
+  }
 }
 
 // guarda a biblioteca no disco interno: ao reiniciar, o app abre na hora sem reler o HD
@@ -518,7 +542,8 @@ function loadLibCache() {
     return true;
   } catch (e) { return false; }
 }
-let lastAttempt = 0;          // varredura cancelada por erro de disco (não tenta de novo antes de 1 dia)
+let lastAttempt = 0;
+let pendingRescan = false;    // pedido de releitura que chegou durante outra varredura          // varredura cancelada por erro de disco (não tenta de novo antes de 1 dia)
 function scanIsDue() {
   if (!lastScan && !lastAttempt) return true;
   const ref = Math.max(lastScan ? Date.parse(lastScan) : 0, lastAttempt);
@@ -925,24 +950,9 @@ function planOrganizacao(body) {
   }
   return { plan, naoEncontrados };
 }
-route('POST', /^\/api\/organizacao\/(previa|aplicar)$/, async (req, res, m) => {
-  let body;
-  try { body = JSON.parse((await readBody(req, 20 * 1024 * 1024)).toString('utf8')); } catch (e) { return send(res, 400, { erro: 'Arquivo inválido: não é um JSON.' }); }
-  let r;
-  try { r = planOrganizacao(body); } catch (e) { return send(res, 400, { erro: e.message }); }
-  const mudam = r.plan.filter(p => p.muda);
-  const cats = [...new Set(r.plan.map(p => p.meta.category).filter(Boolean))].sort(natSort);
-  const tags = [...new Set(r.plan.flatMap(p => p.meta.tags || []))].sort(natSort);
-  const resumo = {
-    noArquivo: r.plan.length + r.naoEncontrados.length, encontrados: r.plan.length, alterados: mudam.length,
-    semCurso: r.naoEncontrados.slice(0, 200), totalSemCurso: r.naoEncontrados.length,
-    categorias: cats, tags, cursosNaBiblioteca: library.length,
-    exemplos: mudam.slice(0, 8).map(p => ({ titulo: summary(p.c).title, ...p.meta }))
-  };
-  if (m[1] === 'previa') return send(res, 200, resumo);
-  const salvo = autoBackup('antes-de-importar');
+function applyPlan(items) {
   db.categories = db.categories || [];
-  for (const p of mudam) {
+  for (const p of items) {
     const d = courseData(p.c.id);
     for (const [f, v] of Object.entries(p.meta)) {
       if (v === '' || (Array.isArray(v) && !v.length)) delete d.meta[f]; else d.meta[f] = v;
@@ -953,8 +963,40 @@ route('POST', /^\/api\/organizacao\/(previa|aplicar)$/, async (req, res, m) => {
       if (d.meta.subcategory && !cat.subs.includes(d.meta.subcategory)) cat.subs.push(d.meta.subcategory);
     }
   }
+}
+function applyOrg(body) { applyPlan(planOrganizacao(body).plan.filter(p => p.muda)); }
+route('POST', /^\/api\/organizacao\/(previa|aplicar)$/, async (req, res, m) => {
+  let body;
+  try { body = JSON.parse((await readBody(req, 20 * 1024 * 1024)).toString('utf8')); } catch (e) { return send(res, 400, { erro: 'Arquivo inválido: não é um JSON.' }); }
+  let r;
+  try { r = planOrganizacao(body); } catch (e) { return send(res, 400, { erro: e.message }); }
+  const mudam = r.plan.filter(p => p.muda);
+  const cats = [...new Set(r.plan.map(p => p.meta.category).filter(Boolean))].sort(natSort);
+  const tags = [...new Set(r.plan.flatMap(p => p.meta.tags || []))].sort(natSort);
+  const inteiros = (Array.isArray(body.cursosInteiros) ? body.cursosInteiros : Array.isArray(body.wholeCourses) ? body.wholeCourses : [])
+    .map(x => String(x).normalize('NFC').replace(/^\/+|\/+$/g, '')).filter(Boolean);
+  const atuais = new Set((db.forceCourse || []).map(x => String(x).normalize('NFC').toLowerCase()));
+  const novosInteiros = inteiros.filter(x => !atuais.has(x.toLowerCase()));
+  const resumo = {
+    cursosInteiros: inteiros.length, novosInteiros: novosInteiros.length,
+    noArquivo: r.plan.length + r.naoEncontrados.length, encontrados: r.plan.length, alterados: mudam.length,
+    semCurso: r.naoEncontrados.slice(0, 200), totalSemCurso: r.naoEncontrados.length,
+    categorias: cats, tags, cursosNaBiblioteca: library.length,
+    exemplos: mudam.slice(0, 8).map(p => ({ titulo: summary(p.c).title, ...p.meta }))
+  };
+  if (m[1] === 'previa') return send(res, 200, resumo);
+  const salvo = autoBackup('antes-de-importar');
+  applyPlan(mudam);
+  let relendo = false;
+  if (novosInteiros.length) {
+    // junta os módulos: relê a biblioteca e, no fim, aplica de novo a organização (para os cursos juntados)
+    db.forceCourse = [...(db.forceCourse || []), ...novosInteiros];
+    db.pendingOrg = body;
+    relendo = true;
+    setTimeout(() => { if (scanning) pendingRescan = true; else scan(); }, 300);
+  }
   saveDb();
-  send(res, 200, { ...resumo, ok: true, backupAnterior: salvo });
+  send(res, 200, { ...resumo, ok: true, backupAnterior: salvo, relendo });
 });
 route('GET', /^\/api\/diagnostico$/, async (req, res) => {
   const rel = p => { const r = ROOTS.find(x => p === x || p.startsWith(x + path.sep)); return r ? (r + p.slice(r.length)) : p; };
