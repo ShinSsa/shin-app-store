@@ -109,6 +109,16 @@
 
   // ---------- menu ----------
   function rotaAtual() { return location.hash.replace(/^#/, '') || '/'; }
+  // lembra de qual tela você entrou em cada curso (aulas e o próprio curso não contam)
+  const origemCurso = {};
+  let rotaAnterior = null;
+  window.addEventListener('hashchange', (e) => {
+    const de = new URL(e.oldURL).hash.replace(/^#/, '') || '/';
+    rotaAnterior = de;
+    const m = rotaAtual().match(/^\/curso\/(\w+)/);
+    if (m && !/^\/(curso|aula)\//.test(de)) origemCurso[m[1]] = '#' + de;
+  });
+  function voltarDoCurso(id) { return origemCurso[id] || '#/explorar'; }
   function renderMenu() {
     const lib = S.lib;
     const r = rotaAtual();
@@ -501,7 +511,7 @@
     const pr = c.progress;
     const allMats = c.materials;
     conteudo.innerHTML = `
-      <div class="aula-topo"><div class="trilha"><a class="btn-ico" href="javascript:history.back()" aria-label="Voltar">${ic('voltar', 18)}</a><span>${esc(c.school || 'Curso avulso')}</span></div>${botaoTema()}</div>
+      <div class="aula-topo"><div class="trilha"><a class="btn-ico" href="${esc(voltarDoCurso(c.id))}" aria-label="Voltar">${ic('voltar', 18)}</a><span>${esc(c.school || 'Curso avulso')}</span></div>${botaoTema()}</div>
       <div class="curso-topo">
         ${capaHTML(c)}
         <div class="curso-info">
@@ -870,6 +880,7 @@
   }
 
   // ---------- eventos ----------
+  document.addEventListener('pointerdown', (e) => { S.pressNoFundo = e.target.classList && e.target.classList.contains('modal-fundo'); }, true);
   document.addEventListener('click', (e) => { if (e.target.closest('.menu a[href]')) document.body.classList.remove('menu-aberto'); });
   document.addEventListener('click', async (e) => {
     const t = e.target.closest('[data-acao],[data-hero],[data-top],[data-vel]');
@@ -909,7 +920,7 @@
         tentadas.delete(t.dataset.id); conhecidos.delete(t.dataset.id);
         aviso('Capa apagada. Uma nova será gerada quando o curso aparecer na tela.'); rota();
       }
-      else if (a === 'fechar' || (a === 'fechar-fundo' && e.target === t)) fecharModal();
+      else if (a === 'fechar' || (a === 'fechar-fundo' && e.target === t && S.pressNoFundo)) fecharModal();
       else if (a === 'ver') verMaterial(t.dataset.id, t.dataset.tipo, t.dataset.nome);
       else if (a === 'zoom') t.classList.toggle('zoom');
       else if (a === 'editar') { e.preventDefault(); editarCurso(t.dataset.id); }

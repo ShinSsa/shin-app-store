@@ -4,7 +4,7 @@ name: Escola do Shin
 tagline: Sua biblioteca de cursos em vídeo e PDF, com progresso e anotações
 icon: https://raw.githubusercontent.com/ShinSsa/shin-app-store/master/assets/escola-do-shin.png
 category: media
-version: "1.0.10"
+version: "1.0.11"
 port: 8792
 description: >-
   Lê a sua pasta de cursos e monta uma biblioteca no estilo Domestika:
@@ -27,7 +27,7 @@ repo: https://github.com/ShinSsa/shin-app-store
 support: https://github.com/ShinSsa/shin-app-store/issues
 gallery: []
 releaseNotes: >-
-  A importação de organização agora junta cursos que apareciam divididos em módulos (lista "cursosInteiros" no arquivo): o app relê as pastas e organiza esses cursos no fim. Módulos com várias camadas de subpastas passam a ser lidos por inteiro.
+  A seta de voltar na página do curso leva para a tela de onde você veio (Explorar com os filtros, Escolas, Início), não para a aula. O formulário de edição não fecha mais quando você seleciona um texto e solta o mouse fora dele.
 dependencies: []
 path: ""
 defaultUsername: ""
