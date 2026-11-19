@@ -60,6 +60,7 @@
     notas: '<path d="M4 4h12l4 4v12H4z"/><path d="M8 12h8M8 16h5"/>',
     fav: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',
     org: '<path d="M4 7h16M4 12h10M4 17h6"/><path d="m16 15 2 2 4-4"/>',
+    backup: '<path d="M4 7c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3z"/><path d="M4 7v10c0 1.7 3.6 3 8 3s8-1.3 8-3V7"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
     escola: '<path d="M3 21h18M5 21V9l7-5 7 5v12M10 21v-6h4v6"/>',
     busca: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
     lua: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
@@ -131,6 +132,7 @@
         <a class="nav-item${ativo(r.startsWith('/notas'))}" href="#/notas">${ic('notas')}Minhas anotações</a>
         <a class="nav-item${ativo(isExp && p.get('fav'))}" href="#/explorar?fav=1">${ic('fav')}Favoritos<span class="cont">${n.fav || ''}</span></a>
         <a class="nav-item${ativo(r.startsWith('/organizar'))}" href="#/organizar">${ic('org')}Para organizar${n.org ? `<span class="cont dest">${n.org}</span>` : ''}</a>
+        <a class="nav-item${ativo(r.startsWith('/backup'))}" href="#/backup">${ic('backup')}Backup e organização</a>
       </div>
       <div class="nav-grupo">
         <div class="nav-titulo">Biblioteca</div>
@@ -356,6 +358,80 @@
       <div class="txt">${esc(n.text)}<div style="margin-top:6px;font-size:12px" class="muted">${esc(n.courseTitle)} · ${esc(n.lessonTitle || '')}${href ? ` · <a class="ir" href="${href}">abrir aula</a>` : ''}</div></div>
       <button class="apagar" data-acao="apagar-nota" data-id="${n.id}" aria-label="Apagar anotação">${ic('lixo', 16)}</button></div>`;
   }
+  // ---------- backup e organização em lote ----------
+  async function telaBackup() {
+    const meu = S.navSeq;
+    const lib = await carregarBiblioteca();
+    if (meu !== S.navSeq) throw OBSOLETO; renderMenu();
+    const semCat = lib.courses.filter(c => !c.category).length;
+    conteudo.innerHTML = topo('Backup e organização', plural(lib.courses.length, 'curso na biblioteca', 'cursos na biblioteca') + ' · ' + plural(semCat, 'sem categoria', 'sem categoria')) + `
+      <div class="bk-grade">
+        <section class="bk-card">
+          <span class="bk-num">1</span>
+          <h2>Backup</h2>
+          <p class="muted">Guarda tudo o que você fez no app: progresso, anotações, avaliações, favoritos, categorias, tags e idiomas. Seus cursos e vídeos não entram, eles continuam nas pastas.</p>
+          <div class="bk-acoes">
+            <a class="btn solido" href="/api/backup" download>${ic('baixar', 16)}Baixar backup</a>
+            <label class="btn sec">Restaurar backup<input type="file" accept=".json,application/json" data-arquivo="restaurar" hidden></label>
+          </div>
+          <small class="muted">Antes de restaurar ou importar, o app guarda sozinho uma cópia do estado atual.</small>
+        </section>
+        <section class="bk-card">
+          <span class="bk-num">2</span>
+          <h2>Lista de cursos</h2>
+          <p class="muted">Um arquivo com a pasta, o título, a escola e os módulos de cada curso. É este arquivo que você manda para o Claude montar a organização.</p>
+          <div class="bk-acoes"><a class="btn solido" href="/api/cursos/lista" download>${ic('baixar', 16)}Exportar lista de cursos</a></div>
+        </section>
+        <section class="bk-card">
+          <span class="bk-num">3</span>
+          <h2>Importar organização</h2>
+          <p class="muted">Envie o arquivo de organização (JSON). Antes de aplicar, você vê quantos cursos vão mudar e quais categorias e tags vão entrar.</p>
+          <div class="bk-acoes"><label class="btn solido">${ic('org', 16)}Escolher arquivo<input type="file" accept=".json,application/json" data-arquivo="organizar" hidden></label></div>
+          <div id="bk-previa"></div>
+        </section>
+      </div>`;
+  }
+  async function lerArquivo(input) {
+    const f = input.files && input.files[0]; input.value = '';
+    if (!f) return null;
+    return f.text();
+  }
+  async function enviarJson(url, texto) {
+    const r = await fetch(url, { method: 'POST', body: texto, headers: { 'Content-Type': 'application/json' } });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.erro || ('Erro ' + r.status));
+    return d;
+  }
+  function chips(lista, max = 30) {
+    return lista.slice(0, max).map(x => `<span class="tag">${esc(x)}</span>`).join('') + (lista.length > max ? `<span class="muted"> +${lista.length - max}</span>` : '');
+  }
+  document.addEventListener('change', async (e) => {
+    const inp = e.target.closest('input[data-arquivo]'); if (!inp) return;
+    try {
+      const texto = await lerArquivo(inp); if (!texto) return;
+      if (inp.dataset.arquivo === 'restaurar') {
+        if (!confirm('Restaurar este backup? O progresso, as anotações e a organização atuais serão substituídos (uma cópia do estado atual é guardada antes).')) return;
+        const d = await enviarJson('/api/backup/restaurar', texto);
+        invalidar(); S.cursos = {}; aviso(`Backup restaurado: ${d.notas} anotações`); rota();
+        return;
+      }
+      const box = $('#bk-previa');
+      box.innerHTML = '<div class="carregando">Conferindo o arquivo…</div>';
+      const d = await enviarJson('/api/organizacao/previa', texto);
+      S.orgTexto = texto;
+      box.innerHTML = `<div class="bk-previa">
+          <b>${plural(d.alterados, 'curso vai mudar', 'cursos vão mudar')}</b>
+          <span class="muted">${d.encontrados} de ${d.noArquivo} itens do arquivo foram encontrados na biblioteca (${d.cursosNaBiblioteca} cursos).</span>
+          ${d.categorias.length ? `<div><small class="muted">Categorias</small><div class="tags">${chips(d.categorias)}</div></div>` : ''}
+          ${d.tags.length ? `<div><small class="muted">Tags</small><div class="tags">${chips(d.tags, 40)}</div></div>` : ''}
+          ${d.exemplos.length ? `<div><small class="muted">Exemplos</small><ul class="bk-ex">${d.exemplos.map(x => `<li><b>${esc(x.titulo)}</b><span>${esc([x.category, x.subcategory].filter(Boolean).join(' › '))}${x.tags && x.tags.length ? ' · ' + esc(x.tags.join(', ')) : ''}${x.language ? ' · ' + esc(x.language) : ''}</span></li>`).join('')}</ul></div>` : ''}
+          ${d.totalSemCurso ? `<details><summary>${plural(d.totalSemCurso, 'item não encontrado', 'itens não encontrados')} na biblioteca</summary><ul class="bk-ex">${d.semCurso.map(x => `<li>${esc(x)}</li>`).join('')}</ul></details>` : ''}
+          <div class="bk-acoes">${d.alterados ? `<button class="btn solido" data-acao="aplicar-org">${ic('check', 16)}Aplicar em ${plural(d.alterados, 'curso', 'cursos')}</button>` : '<span class="muted">Nada para mudar.</span>'}
+            <button class="btn sec" data-acao="cancelar-org">Cancelar</button></div>
+        </div>`;
+    } catch (err) { aviso(err.message); const box = $('#bk-previa'); if (box) box.innerHTML = `<div class="erro-varredura">⚠ ${esc(err.message)}</div>`; }
+  });
+
   async function telaNotas(p) {
     const meu = S.navSeq;
     await carregarBiblioteca(); if (meu !== S.navSeq) throw OBSOLETO; renderMenu();
@@ -807,6 +883,15 @@
       else if (a === 'varrer') { await api('/api/varrer', { method: 'POST' }); aviso('Atualizando a biblioteca…'); setTimeout(() => { invalidar(); rota(); }, 1500); }
       else if (a === 'diagnostico') verDiagnostico();
       else if (a === 'mais') mostrarMais(t);
+      else if (a === 'cancelar-org') { S.orgTexto = null; $('#bk-previa').innerHTML = ''; }
+      else if (a === 'aplicar-org' && S.orgTexto) {
+        t.disabled = true;
+        const d = await enviarJson('/api/organizacao/aplicar', S.orgTexto);
+        S.orgTexto = null; invalidar(); S.cursos = {};
+        aviso(`Organização aplicada em ${plural(d.alterados, 'curso', 'cursos')}`);
+        $('#bk-previa').innerHTML = `<div class="bk-previa"><b>Pronto: ${plural(d.alterados, 'curso organizado', 'cursos organizados')}.</b><a class="btn sec" href="#/explorar">Ver em Explorar</a></div>`;
+        renderMenu();
+      }
       else if (a === 'refazer-capa') {
         await api('/api/capa/' + t.dataset.id, { method: 'DELETE' });
         fecharModal(); invalidar(); S.cursos[t.dataset.id] = null;
@@ -910,6 +995,7 @@
       else if (caminho[0] === 'escolas') await telaEscolas();
       else if (caminho[0] === 'organizar') await telaOrganizar();
       else if (caminho[0] === 'notas') await telaNotas(p);
+      else if (caminho[0] === 'backup') await telaBackup();
       else if (caminho[0] === 'curso') await telaCurso(caminho[1]);
       else if (caminho[0] === 'aula') await telaAula(caminho[1], caminho[2], p);
       else await telaInicio();

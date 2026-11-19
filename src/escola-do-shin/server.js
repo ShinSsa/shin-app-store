@@ -842,6 +842,120 @@ route('DELETE', /^\/api\/capa\/(\w+)$/, async (req, res, m) => {
   send(res, 200, { ok: true });
 });
 route('POST', /^\/api\/varrer$/, async (req, res) => { scan(); send(res, 200, { ok: true }); });
+// ---------- backup, lista de cursos e organização em lote ----------
+const BACKUP_DIR = path.join(DATA_DIR, 'backups');
+const nfc = x => String(x || '').normalize('NFC');
+// caminho da pasta do curso, relativo à pasta de cursos ("DOMESTIKA/Técnicas de gravura digital")
+function relPathOf(c) {
+  let rel = path.relative(c.root, c.path).split(path.sep).join('/');
+  if (c.root !== ROOTS[0]) rel = path.basename(c.root) + ':' + rel;
+  return nfc(rel);
+}
+function sendDownload(res, name, obj) {
+  const body = JSON.stringify(obj, null, 2);
+  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(name)}`, 'Cache-Control': 'no-store' });
+  res.end(body);
+}
+const hoje = () => new Date().toISOString().slice(0, 10);
+function autoBackup(motivo) {
+  try {
+    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+    const f = path.join(BACKUP_DIR, `${new Date().toISOString().replace(/[:.]/g, '-')}-${motivo}.json`);
+    fs.writeFileSync(f, JSON.stringify({ app: 'escola-do-shin', tipo: 'backup', criadoEm: new Date().toISOString(), db }));
+    // guarda só os 15 mais recentes
+    const all = fs.readdirSync(BACKUP_DIR).filter(n => n.endsWith('.json')).sort();
+    for (const old of all.slice(0, Math.max(0, all.length - 15))) fs.unlinkSync(path.join(BACKUP_DIR, old));
+    return path.basename(f);
+  } catch (e) { console.error('Backup automático falhou:', e.message); return null; }
+}
+
+route('GET', /^\/api\/backup$/, async (req, res) => {
+  sendDownload(res, `escola-do-shin-backup-${hoje()}.json`, { app: 'escola-do-shin', tipo: 'backup', versao: 1, criadoEm: new Date().toISOString(), cursos: library.length, db });
+});
+route('POST', /^\/api\/backup\/restaurar$/, async (req, res) => {
+  let b;
+  try { b = JSON.parse((await readBody(req, 80 * 1024 * 1024)).toString('utf8')); } catch (e) { return send(res, 400, { erro: 'Arquivo inválido: não é um JSON.' }); }
+  if (!b || b.app !== 'escola-do-shin' || b.tipo !== 'backup' || !b.db || typeof b.db.courses !== 'object')
+    return send(res, 400, { erro: 'Este arquivo não é um backup da Escola do Shin.' });
+  const salvo = autoBackup('antes-de-restaurar');
+  db = Object.assign({ index: {}, courses: {}, notes: [], activity: {}, categories: [] }, b.db);
+  matchIds(library); byId = new Map(library.map(c => [c.id, c])); saveDb(); saveLibCache();
+  send(res, 200, { ok: true, cursos: Object.keys(db.courses).length, notas: db.notes.length, backupAnterior: salvo });
+});
+
+route('GET', /^\/api\/cursos\/lista$/, async (req, res) => {
+  const cursos = library.map(c => {
+    const s = summary(c);
+    return {
+      pasta: relPathOf(c), titulo: s.title, escola: s.school || '', tipo: s.kind, aulas: c.lessonCount,
+      duracaoMin: Math.round((c.duration || 0) / 60),
+      modulos: c.modules.slice(0, 12).map(m => m.title),
+      categoria: s.category, subcategoria: s.subcategory, tags: s.tags, idioma: s.language
+    };
+  }).sort((a, b) => natSort(a.pasta, b.pasta));
+  sendDownload(res, `escola-do-shin-lista-de-cursos-${hoje()}.json`, { app: 'escola-do-shin', tipo: 'lista-de-cursos', criadoEm: new Date().toISOString(), total: cursos.length, cursos });
+});
+
+// aceita chaves em português ou inglês
+const ORG_FIELDS = { categoria: 'category', category: 'category', subcategoria: 'subcategory', subcategory: 'subcategory', escola: 'school', school: 'school', tags: 'tags', idioma: 'language', language: 'language', titulo: 'title', title: 'title', descricao: 'description', description: 'description' };
+function planOrganizacao(body) {
+  const entries = body && (body.cursos || body.courses);
+  if (!entries || typeof entries !== 'object') throw new Error('O arquivo precisa ter um bloco "cursos".');
+  const list = Array.isArray(entries) ? entries.map(e => [e.pasta || e.path, e]) : Object.entries(entries);
+  const byRel = new Map(), byLow = new Map(), byName = new Map();
+  for (const c of library) {
+    const r = relPathOf(c);
+    byRel.set(r, c); byLow.set(r.toLowerCase(), c);
+    const n = nfc(c.folderName).toLowerCase();
+    byName.set(n, byName.has(n) ? null : c);   // null = nome repetido, não dá para usar
+  }
+  const plan = [], naoEncontrados = [];
+  for (const [key, val] of list) {
+    const k = nfc(key).replace(/^\/+|\/+$/g, '');
+    const c = byRel.get(k) || byLow.get(k.toLowerCase()) || byName.get(k.split('/').pop().toLowerCase());
+    if (!c) { naoEncontrados.push(key); continue; }
+    const meta = {};
+    for (const [f, v] of Object.entries(val || {})) if (ORG_FIELDS[f]) meta[ORG_FIELDS[f]] = v;
+    if (meta.tags && !Array.isArray(meta.tags)) meta.tags = String(meta.tags).split(',');
+    if (meta.tags) meta.tags = [...new Set(meta.tags.map(t => String(t).trim()).filter(Boolean))].slice(0, 30);
+    for (const f of Object.keys(meta)) if (f !== 'tags') meta[f] = String(meta[f] ?? '').trim().slice(0, 2000);
+    const cur = courseData(c.id).meta;
+    const muda = Object.keys(meta).some(f => JSON.stringify(cur[f] ?? (f === 'tags' ? [] : '')) !== JSON.stringify(meta[f]));
+    plan.push({ c, meta, muda });
+  }
+  return { plan, naoEncontrados };
+}
+route('POST', /^\/api\/organizacao\/(previa|aplicar)$/, async (req, res, m) => {
+  let body;
+  try { body = JSON.parse((await readBody(req, 20 * 1024 * 1024)).toString('utf8')); } catch (e) { return send(res, 400, { erro: 'Arquivo inválido: não é um JSON.' }); }
+  let r;
+  try { r = planOrganizacao(body); } catch (e) { return send(res, 400, { erro: e.message }); }
+  const mudam = r.plan.filter(p => p.muda);
+  const cats = [...new Set(r.plan.map(p => p.meta.category).filter(Boolean))].sort(natSort);
+  const tags = [...new Set(r.plan.flatMap(p => p.meta.tags || []))].sort(natSort);
+  const resumo = {
+    noArquivo: r.plan.length + r.naoEncontrados.length, encontrados: r.plan.length, alterados: mudam.length,
+    semCurso: r.naoEncontrados.slice(0, 200), totalSemCurso: r.naoEncontrados.length,
+    categorias: cats, tags, cursosNaBiblioteca: library.length,
+    exemplos: mudam.slice(0, 8).map(p => ({ titulo: summary(p.c).title, ...p.meta }))
+  };
+  if (m[1] === 'previa') return send(res, 200, resumo);
+  const salvo = autoBackup('antes-de-importar');
+  db.categories = db.categories || [];
+  for (const p of mudam) {
+    const d = courseData(p.c.id);
+    for (const [f, v] of Object.entries(p.meta)) {
+      if (v === '' || (Array.isArray(v) && !v.length)) delete d.meta[f]; else d.meta[f] = v;
+    }
+    if (d.meta.category) {
+      let cat = db.categories.find(x => x.name === d.meta.category);
+      if (!cat) db.categories.push(cat = { name: d.meta.category, subs: [] });
+      if (d.meta.subcategory && !cat.subs.includes(d.meta.subcategory)) cat.subs.push(d.meta.subcategory);
+    }
+  }
+  saveDb();
+  send(res, 200, { ...resumo, ok: true, backupAnterior: salvo });
+});
 route('GET', /^\/api\/diagnostico$/, async (req, res) => {
   const rel = p => { const r = ROOTS.find(x => p === x || p.startsWith(x + path.sep)); return r ? (r + p.slice(r.length)) : p; };
   send(res, 200, {

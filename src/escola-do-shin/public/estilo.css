@@ -297,3 +297,16 @@ section.bloco{display:flex;flex-direction:column;gap:16px;margin-bottom:40px}
 .diag-lista span{color:var(--muted);font-size:13px}
 .mais{display:flex;justify-content:center;margin:20px 0 8px}
 .erro-varredura{font-size:12.5px;line-height:1.4;color:var(--red);background:var(--red-soft);border-radius:10px;padding:8px 10px}
+/* 1.0.8: backup e organização */
+.bk-grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;align-items:start}
+.bk-card{background:var(--card);border:1px solid var(--borda,var(--border));border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:10px;position:relative}
+.bk-card h2{margin:0;font-size:18px}
+.bk-card p{margin:0}
+.bk-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;background:var(--accent-soft,var(--elev));color:var(--accent)}
+.bk-acoes{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.bk-acoes label.btn{cursor:pointer}
+.bk-previa{display:flex;flex-direction:column;gap:12px;background:var(--elev);border-radius:14px;padding:14px;margin-top:6px}
+.bk-ex{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13.5px}
+.bk-ex li{display:flex;flex-direction:column}
+.bk-ex span{color:var(--muted);font-size:12.5px}
+.bk-previa details summary{cursor:pointer;color:var(--muted);font-size:13.5px}

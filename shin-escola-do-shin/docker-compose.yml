@@ -8,7 +8,7 @@ services:
       APP_PORT: 8792
 
   web:
-    image: ghcr.io/shinssa/escola-do-shin:1.0.7
+    image: ghcr.io/shinssa/escola-do-shin:1.0.8
     # roda como administrador para ler pastas antigas do HD externo
     # (as pastas de cursos ficam em somente leitura)
     user: "0:0"

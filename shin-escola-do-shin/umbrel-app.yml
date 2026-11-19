@@ -4,7 +4,7 @@ name: Escola do Shin
 tagline: Sua biblioteca de cursos em vídeo e PDF, com progresso e anotações
 icon: https://raw.githubusercontent.com/ShinSsa/shin-app-store/master/assets/escola-do-shin.png
 category: media
-version: "1.0.7"
+version: "1.0.8"
 port: 8792
 description: >-
   Lê a sua pasta de cursos e monta uma biblioteca no estilo Domestika:
@@ -27,7 +27,7 @@ repo: https://github.com/ShinSsa/shin-app-store
 support: https://github.com/ShinSsa/shin-app-store/issues
 gallery: []
 releaseNotes: >-
-  Cursos abrem na hora: os links dos PDFs são lidos em segundo plano e sem os links falsos do Illustrator. Cliques não ficam mais presos em páginas lentas. Novo campo Idioma com filtro e bandeira no card (detectado de [PT-BR], [EN], [ES] no nome da pasta). Busca enquanto digita. Capas pretas evitadas e botão para gerar a capa de novo.
+  Nova tela "Backup e organização": baixe e restaure um backup de tudo (progresso, anotações, categorias, tags), exporte a lista de cursos e importe uma organização em lote (categorias, subcategorias, escolas, tags e idioma) com prévia antes de aplicar. O app guarda uma cópia automática antes de cada importação ou restauração.
 dependencies: []
 path: ""
 defaultUsername: ""
